@@ -2,10 +2,12 @@ import { Router } from 'express'
 import bcrypt from 'bcryptjs'
 import { db, nanoid } from '../db.js'
 import { signToken, authMiddleware } from '../auth.js'
+import { notifyUser } from '../realtime.js'
 
 const r = Router()
 
 const COLORS = ['#5865F2', '#57F287', '#FEE75C', '#EB459E', '#ED4245', '#3BA55D', '#FAA61A', '#00A8FC']
+const USERNAME_RE = /^[a-z0-9._-]{3,20}$/
 
 export function publicUser(u) {
   return {
@@ -37,8 +39,12 @@ r.get('/invite/:code', (req, res) => {
 r.post('/register', async (req, res) => {
   const { username, password, displayName, invite } = req.body || {}
   const uname = String(username || '').trim().toLowerCase()
-  if (uname.length < 3) return res.status(400).json({ error: 'nome de usuario precisa de ao menos 3 letras' })
-  if (String(password || '').length < 4) return res.status(400).json({ error: 'senha precisa de ao menos 4 caracteres' })
+  if (!USERNAME_RE.test(uname)) {
+    return res.status(400).json({ error: 'usuario: 3-20 caracteres, so letras minusculas, numeros, . _ -' })
+  }
+  const pass = String(password || '')
+  if (pass.length < 4 || pass.length > 200) return res.status(400).json({ error: 'senha: entre 4 e 200 caracteres' })
+  const display = String(displayName || username).trim().slice(0, 32)
 
   const isFirstUser = db.data.users.length === 0
   let inviteRec = null
@@ -53,8 +59,8 @@ r.post('/register', async (req, res) => {
   const user = {
     id: nanoid(),
     username: uname,
-    displayName: String(displayName || username).trim().slice(0, 32),
-    passwordHash: bcrypt.hashSync(String(password), 10),
+    displayName: display || uname,
+    passwordHash: bcrypt.hashSync(pass, 10),
     color: COLORS[db.data.users.length % COLORS.length],
     isAdmin: isFirstUser,
     createdAt: Date.now(),
@@ -74,6 +80,7 @@ r.post('/register', async (req, res) => {
     }
   }
   await db.write()
+  if (inviteRec?.createdBy) notifyUser(inviteRec.createdBy, 'sync', { scope: 'friends' })
   res.json({ token: signToken(user), user: publicUser(user) })
 })
 

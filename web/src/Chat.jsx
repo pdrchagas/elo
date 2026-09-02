@@ -2,16 +2,24 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from './api.js'
 import { getSocket } from './socket.js'
 import { useStore } from './store.js'
+import { STICKERS, fileToChatImage } from './media.js'
 
 export default function Chat({ server, channel }) {
-  const user = useStore((s) => s.user)
   const [messages, setMessages] = useState([])
   const [text, setText] = useState('')
+  const [pendingImg, setPendingImg] = useState(null) // data URI aguardando envio
+  const [showStickers, setShowStickers] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const [lightbox, setLightbox] = useState(null)
   const scroller = useRef(null)
+  const fileInput = useRef(null)
 
   useEffect(() => {
     let alive = true
     setMessages([])
+    setPendingImg(null)
+    setShowStickers(false)
     api(`/servers/${server.id}/channels/${channel.id}/messages`)
       .then(({ messages }) => alive && setMessages(messages))
       .catch(() => {})
@@ -21,10 +29,13 @@ export default function Chat({ server, channel }) {
     const onMsg = (m) => {
       if (m.channelId === channel.id) setMessages((prev) => [...prev, m])
     }
+    const onErr = ({ error }) => setErr(error)
     socket?.on('chat:message', onMsg)
+    socket?.on('chat:error', onErr)
     return () => {
       alive = false
       socket?.off('chat:message', onMsg)
+      socket?.off('chat:error', onErr)
     }
   }, [server.id, channel.id])
 
@@ -32,12 +43,39 @@ export default function Chat({ server, channel }) {
     scroller.current?.scrollTo({ top: scroller.current.scrollHeight })
   }, [messages])
 
+  async function pickImage(file) {
+    if (!file) return
+    setErr('')
+    setBusy(true)
+    try {
+      setPendingImg(await fileToChatImage(file))
+    } catch (e) {
+      setErr(e.message || 'nao deu pra usar essa imagem')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function onPaste(e) {
+    const item = [...(e.clipboardData?.items || [])].find((i) => i.type.startsWith('image/'))
+    if (item) {
+      e.preventDefault()
+      pickImage(item.getAsFile())
+    }
+  }
+
   function send(e) {
-    e.preventDefault()
+    e?.preventDefault()
     const content = text.trim()
-    if (!content) return
-    getSocket()?.emit('chat:send', { channelId: channel.id, content })
+    if (!content && !pendingImg) return
+    getSocket()?.emit('chat:send', { channelId: channel.id, content, image: pendingImg || undefined })
     setText('')
+    setPendingImg(null)
+  }
+
+  function sendSticker(s) {
+    getSocket()?.emit('chat:send', { channelId: channel.id, sticker: s })
+    setShowStickers(false)
   }
 
   return (
@@ -53,18 +91,74 @@ export default function Chat({ server, channel }) {
             <span className="avatar sm" style={{ background: m.author?.color || '#666' }}>
               {(m.author?.displayName || '?').slice(0, 1).toUpperCase()}
             </span>
-            <div>
+            <div className="msg-main">
               <div className="msg-head">
                 <strong>{m.author?.displayName || 'desconhecido'}</strong>
-                <small>{new Date(m.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</small>
+                <small>
+                  {new Date(m.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                </small>
               </div>
-              <div className="msg-body">{m.content}</div>
+              {m.content && <div className="msg-body">{m.content}</div>}
+              {m.sticker && <div className="msg-sticker">{m.sticker}</div>}
+              {m.image && (
+                <img
+                  className="msg-image"
+                  src={m.image}
+                  alt="imagem"
+                  onClick={() => setLightbox(m.image)}
+                />
+              )}
             </div>
           </div>
         ))}
       </div>
 
-      <form className="composer" onSubmit={send}>
+      {err && <div className="chat-err" onClick={() => setErr('')}>{err} (clica pra fechar)</div>}
+
+      {pendingImg && (
+        <div className="pending-img">
+          <img src={pendingImg} alt="previa" />
+          <button className="btn sm" onClick={() => setPendingImg(null)}>remover</button>
+          <span className="hint">a imagem vai junto quando você enviar</span>
+        </div>
+      )}
+
+      {showStickers && (
+        <div className="sticker-tray">
+          {STICKERS.map((s) => (
+            <button key={s} onClick={() => sendSticker(s)}>{s}</button>
+          ))}
+        </div>
+      )}
+
+      <form className="composer" onSubmit={send} onPaste={onPaste}>
+        <button
+          type="button"
+          className="composer-btn"
+          title="imagem"
+          disabled={busy}
+          onClick={() => fileInput.current?.click()}
+        >
+          {busy ? '…' : '🖼'}
+        </button>
+        <button
+          type="button"
+          className={`composer-btn ${showStickers ? 'on' : ''}`}
+          title="figurinhas"
+          onClick={() => setShowStickers((v) => !v)}
+        >
+          😀
+        </button>
+        <input
+          ref={fileInput}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={(e) => {
+            pickImage(e.target.files?.[0])
+            e.target.value = ''
+          }}
+        />
         <input
           placeholder={`mensagem em #${channel.name}`}
           value={text}
@@ -72,6 +166,12 @@ export default function Chat({ server, channel }) {
         />
         <button className="btn primary">enviar</button>
       </form>
+
+      {lightbox && (
+        <div className="lightbox" onClick={() => setLightbox(null)}>
+          <img src={lightbox} alt="imagem" />
+        </div>
+      )}
     </div>
   )
 }

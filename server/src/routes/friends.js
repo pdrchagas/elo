@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { db, nanoid } from '../db.js'
 import { authMiddleware } from '../auth.js'
 import { publicUser } from './auth.js'
+import { notifyUser, isOnline } from '../realtime.js'
 
 const r = Router()
 r.use(authMiddleware)
@@ -18,7 +19,7 @@ r.get('/', (req, res) => {
         rel: f.id,
         status: f.status,
         incoming: f.status === 'pending' && f.requestedBy !== me,
-        user: publicUser(u),
+        user: { ...publicUser(u), online: isOnline(u.id) },
       }
     })
     .filter(Boolean)
@@ -26,7 +27,7 @@ r.get('/', (req, res) => {
 })
 
 r.post('/request', async (req, res) => {
-  const uname = String(req.body?.username || '').trim().toLowerCase()
+  const uname = String(req.body?.username || '').trim().toLowerCase().slice(0, 20)
   const target = db.data.users.find((u) => u.username === uname)
   if (!target) return res.status(404).json({ error: 'nao achei ninguem com esse nome' })
   if (target.id === req.user.id) return res.status(400).json({ error: 'voce nao pode se adicionar' })
@@ -46,6 +47,7 @@ r.post('/request', async (req, res) => {
     requestedBy: req.user.id,
   })
   await db.write()
+  notifyUser(target.id, 'sync', { scope: 'friends' })
   res.json({ ok: true })
 })
 
@@ -55,16 +57,20 @@ r.post('/:rel/accept', async (req, res) => {
   if (f.requestedBy === req.user.id) return res.status(400).json({ error: 'esse pedido foi voce que enviou' })
   f.status = 'accepted'
   await db.write()
+  const other = f.a === req.user.id ? f.b : f.a
+  notifyUser(other, 'sync', { scope: 'friends' })
   res.json({ ok: true })
 })
 
 r.delete('/:rel', async (req, res) => {
-  const i = db.data.friends.findIndex(
+  const f = db.data.friends.find(
     (x) => x.id === req.params.rel && (x.a === req.user.id || x.b === req.user.id),
   )
-  if (i === -1) return res.status(404).json({ error: 'nao encontrado' })
-  db.data.friends.splice(i, 1)
+  if (!f) return res.status(404).json({ error: 'nao encontrado' })
+  db.data.friends = db.data.friends.filter((x) => x.id !== f.id)
   await db.write()
+  const other = f.a === req.user.id ? f.b : f.a
+  notifyUser(other, 'sync', { scope: 'friends' })
   res.json({ ok: true })
 })
 

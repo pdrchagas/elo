@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useStore } from './store.js'
 import { useVoice } from './voice.js'
-import { getSocket } from './socket.js'
 import { api } from './api.js'
 import Home from './Home.jsx'
 import Chat from './Chat.jsx'
 import VoiceStage from './VoiceStage.jsx'
+import MembersPanel from './MembersPanel.jsx'
 import { CreateServerDialog, InviteDialog, AddChannelDialog, ConfirmDialog } from './Dialogs.jsx'
 import DeviceMenu from './DeviceMenu.jsx'
 import {
@@ -16,10 +16,11 @@ import {
 export default function Shell() {
   const {
     user, servers, activeServerId, activeChannelId,
-    selectServer, selectChannel, logout, refreshServers, refreshFriends,
+    selectServer, selectChannel, logout, refreshServers,
   } = useStore()
   const voice = useVoice()
   const [dialog, setDialog] = useState(null) // 'server' | 'invite' | 'channel' | 'logout'
+  const [showMembers, setShowMembers] = useState(true)
 
   const server = servers.find((s) => s.id === activeServerId) || null
   const channel = server?.channels.find((c) => c.id === activeChannelId) || null
@@ -35,18 +36,6 @@ export default function Shell() {
       })
       .catch(() => {})
       .finally(() => window.history.replaceState({}, '', window.location.pathname))
-  }, [])
-
-  // atualiza listas quando o socket sinaliza mudancas gerais
-  useEffect(() => {
-    const socket = getSocket()
-    if (!socket) return
-    const onRefresh = () => {
-      refreshServers()
-      refreshFriends()
-    }
-    socket.on('connect', onRefresh)
-    return () => socket.off('connect', onRefresh)
   }, [])
 
   const voiceChannelInfo = useMemo(() => {
@@ -91,6 +80,13 @@ export default function Shell() {
           <>
             <header className="sidebar-head">
               <span>{server.name}</span>
+              <button
+                className={`icon-btn ${showMembers ? 'on' : ''}`}
+                title="Membros"
+                onClick={() => setShowMembers((v) => !v)}
+              >
+                👥
+              </button>
               <button className="icon-btn" title="Convidar / gerenciar" onClick={() => setDialog('invite')}>
                 ⚙
               </button>
@@ -151,6 +147,8 @@ export default function Shell() {
         {server && channel?.type === 'text' && <Chat server={server} channel={channel} />}
         {server && channel?.type === 'voice' && <VoiceStage server={server} channel={channel} />}
       </main>
+
+      {server && showMembers && <MembersPanel server={server} />}
 
       {dialog === 'server' && <CreateServerDialog onClose={() => setDialog(null)} />}
       {dialog === 'invite' && server && (

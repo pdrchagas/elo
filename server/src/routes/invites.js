@@ -5,23 +5,33 @@ import { authMiddleware } from '../auth.js'
 const r = Router()
 r.use(authMiddleware)
 
+function me(req) {
+  return db.data.users.find((u) => u.id === req.user.id)
+}
+
 // cria um convite (para o app ou para um servidor especifico)
 r.post('/', async (req, res) => {
-  const { kind = 'app', serverId = null, maxUses = 0, expiresInHours = 0 } = req.body || {}
+  const { kind = 'app', serverId = null } = req.body || {}
+  let { maxUses = 0, expiresInHours = 0 } = req.body || {}
+  maxUses = Math.max(0, Math.min(Number(maxUses) || 0, 100))
+  expiresInHours = Math.max(0, Math.min(Number(expiresInHours) || 0, 24 * 30))
 
-  if (kind === 'server') {
+  if (kind === 'app') {
+    // convite de ACESSO AO APP: so o admin cria
+    if (!me(req)?.isAdmin) return res.status(403).json({ error: 'so o admin gera convite de acesso ao app' })
+  } else {
     const member = db.data.members.find((m) => m.serverId === serverId && m.userId === req.user.id)
     if (!member) return res.status(403).json({ error: 'voce nao participa desse servidor' })
   }
 
   const rec = {
-    code: nanoid(10),
+    code: nanoid(12),
     kind: kind === 'server' ? 'server' : 'app',
     serverId: kind === 'server' ? serverId : null,
     createdBy: req.user.id,
-    maxUses: Number(maxUses) || 0,
+    maxUses,
     uses: 0,
-    expiresAt: expiresInHours ? Date.now() + Number(expiresInHours) * 3600e3 : 0,
+    expiresAt: expiresInHours ? Date.now() + expiresInHours * 3600e3 : 0,
     createdAt: Date.now(),
   }
   db.data.invites.push(rec)

@@ -4,7 +4,7 @@ import { api } from './api.js'
 import { CreateServerDialog } from './Dialogs.jsx'
 
 export default function Home() {
-  const { user, friends, refreshFriends } = useStore()
+  const { user, friends, refreshFriends, online } = useStore()
   const [username, setUsername] = useState('')
   const [msg, setMsg] = useState('')
   const [dialog, setDialog] = useState(false)
@@ -80,19 +80,28 @@ export default function Home() {
         )}
 
         <section className="panel">
-          <h3>meus amigos ({accepted.length})</h3>
+          <h3>
+            meus amigos ({accepted.length})
+            {' · '}
+            <small>{accepted.filter((f) => online[f.user.id] || f.user.online).length} online</small>
+          </h3>
           {accepted.length === 0 && <p className="hint">ainda sem amigos por aqui.</p>}
-          {accepted.map((f) => (
-            <div key={f.rel} className="friend-row">
-              <span className="avatar sm" style={{ background: f.user.color }}>
-                {f.user.displayName.slice(0, 1).toUpperCase()}
-              </span>
-              <span className="grow">{f.user.displayName} <small>@{f.user.username}</small></span>
-              <button className="btn sm ghost" onClick={() => act(f.rel, '')}>
-                remover
-              </button>
-            </div>
-          ))}
+          {accepted.map((f) => {
+            const isOn = !!(online[f.user.id] || f.user.online)
+            return (
+              <div key={f.rel} className={`friend-row ${isOn ? '' : 'dim'}`}>
+                <span className={`avatar sm ${isOn ? 'online' : ''}`} style={{ background: f.user.color }}>
+                  {f.user.displayName.slice(0, 1).toUpperCase()}
+                </span>
+                <span className="grow">
+                  {f.user.displayName} <small>{isOn ? 'online' : `@${f.user.username}`}</small>
+                </span>
+                <button className="btn sm ghost" onClick={() => act(f.rel, '')}>
+                  remover
+                </button>
+              </div>
+            )
+          })}
           {pendingSent.map((f) => (
             <div key={f.rel} className="friend-row dim">
               <span className="avatar sm" style={{ background: f.user.color }}>

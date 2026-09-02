@@ -1,6 +1,16 @@
 import jwt from 'jsonwebtoken'
 
-const SECRET = process.env.JWT_SECRET || 'dev-secret-troque-isto'
+const isProd = process.env.NODE_ENV === 'production'
+const SECRET = process.env.JWT_SECRET || (isProd ? null : 'dev-secret-somente-local')
+
+if (!SECRET) {
+  console.error('FATAL: defina JWT_SECRET nas variaveis de ambiente.')
+  process.exit(1)
+}
+if (SECRET.length < 16) {
+  console.error('FATAL: JWT_SECRET muito curto (use >= 32 caracteres aleatorios).')
+  process.exit(1)
+}
 
 export function signToken(user) {
   return jwt.sign(
