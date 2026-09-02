@@ -1,0 +1,95 @@
+import { Router } from 'express'
+import bcrypt from 'bcryptjs'
+import { db, nanoid } from '../db.js'
+import { signToken, authMiddleware } from '../auth.js'
+
+const r = Router()
+
+const COLORS = ['#5865F2', '#57F287', '#FEE75C', '#EB459E', '#ED4245', '#3BA55D', '#FAA61A', '#00A8FC']
+
+export function publicUser(u) {
+  return {
+    id: u.id,
+    username: u.username,
+    displayName: u.displayName,
+    color: u.color,
+    isAdmin: !!u.isAdmin,
+  }
+}
+
+// Consulta publica de um convite (usada pela tela de cadastro)
+r.get('/invite/:code', (req, res) => {
+  const inv = db.data.invites.find((i) => i.code === req.params.code)
+  if (!inv) return res.status(404).json({ error: 'convite invalido' })
+  const expired = inv.expiresAt && Date.now() > inv.expiresAt
+  const used = inv.maxUses && inv.uses >= inv.maxUses
+  const inviter = db.data.users.find((u) => u.id === inv.createdBy)
+  res.json({
+    invite: {
+      code: inv.code,
+      kind: inv.kind,
+      valid: !expired && !used,
+      invitedBy: inviter ? inviter.displayName : null,
+    },
+  })
+})
+
+r.post('/register', async (req, res) => {
+  const { username, password, displayName, invite } = req.body || {}
+  const uname = String(username || '').trim().toLowerCase()
+  if (uname.length < 3) return res.status(400).json({ error: 'nome de usuario precisa de ao menos 3 letras' })
+  if (String(password || '').length < 4) return res.status(400).json({ error: 'senha precisa de ao menos 4 caracteres' })
+
+  const isFirstUser = db.data.users.length === 0
+  let inviteRec = null
+  if (!isFirstUser) {
+    inviteRec = db.data.invites.find((i) => i.code === invite && i.kind === 'app')
+    if (!inviteRec) return res.status(403).json({ error: 'esse app e so por convite — peca um link pro admin' })
+    if (inviteRec.expiresAt && Date.now() > inviteRec.expiresAt) return res.status(403).json({ error: 'convite expirado' })
+    if (inviteRec.maxUses && inviteRec.uses >= inviteRec.maxUses) return res.status(403).json({ error: 'convite ja foi usado o maximo de vezes' })
+  }
+  if (db.data.users.find((u) => u.username === uname)) return res.status(409).json({ error: 'esse nome de usuario ja existe' })
+
+  const user = {
+    id: nanoid(),
+    username: uname,
+    displayName: String(displayName || username).trim().slice(0, 32),
+    passwordHash: bcrypt.hashSync(String(password), 10),
+    color: COLORS[db.data.users.length % COLORS.length],
+    isAdmin: isFirstUser,
+    createdAt: Date.now(),
+  }
+  db.data.users.push(user)
+
+  if (inviteRec) {
+    inviteRec.uses++
+    if (inviteRec.createdBy && inviteRec.createdBy !== user.id) {
+      db.data.friends.push({
+        id: nanoid(),
+        a: inviteRec.createdBy,
+        b: user.id,
+        status: 'accepted',
+        requestedBy: inviteRec.createdBy,
+      })
+    }
+  }
+  await db.write()
+  res.json({ token: signToken(user), user: publicUser(user) })
+})
+
+r.post('/login', async (req, res) => {
+  const uname = String(req.body?.username || '').trim().toLowerCase()
+  const user = db.data.users.find((u) => u.username === uname)
+  if (!user || !bcrypt.compareSync(String(req.body?.password || ''), user.passwordHash)) {
+    return res.status(401).json({ error: 'usuario ou senha invalidos' })
+  }
+  res.json({ token: signToken(user), user: publicUser(user) })
+})
+
+r.get('/me', authMiddleware, (req, res) => {
+  const user = db.data.users.find((u) => u.id === req.user.id)
+  if (!user) return res.status(404).json({ error: 'nao encontrado' })
+  res.json({ user: publicUser(user) })
+})
+
+export default r
