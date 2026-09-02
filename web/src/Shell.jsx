@@ -8,10 +8,9 @@ import VoiceStage from './VoiceStage.jsx'
 import MembersPanel from './MembersPanel.jsx'
 import Settings from './Settings.jsx'
 import { CreateServerDialog, InviteDialog, AddChannelDialog, ConfirmDialog } from './Dialogs.jsx'
-import DeviceMenu from './DeviceMenu.jsx'
 import {
   MicIcon, MicOffIcon, HeadphonesIcon, HeadphonesOffIcon,
-  ScreenIcon, CameraIcon, CameraOffIcon, HangupIcon, GearIcon, ChevronIcon, SignalBars,
+  ScreenIcon, CameraIcon, CameraOffIcon, HangupIcon, GearIcon, SignalBars,
 } from './icons.jsx'
 
 export default function Shell() {
@@ -259,7 +258,6 @@ function VoicePanel({ info }) {
 
 function UserBar({ user, onOpenSettings }) {
   const voice = useVoice()
-  const [menu, setMenu] = useState(null) // 'mic' | 'spk'
 
   return (
     <div className="userbar">
@@ -271,49 +269,21 @@ function UserBar({ user, onOpenSettings }) {
         <small>@{user.username}</small>
       </div>
 
-      <div className="ub-ctrl">
-        <button
-          className={`ub-btn ${voice.muted ? 'off' : ''}`}
-          title={voice.muted ? 'ativar microfone' : 'mutar'}
-          onClick={() => voice.toggleMute()}
-        >
-          {voice.muted ? <MicOffIcon size={18} /> : <MicIcon size={18} />}
-        </button>
-        <button className="ub-chev" title="escolher microfone" onClick={() => setMenu(menu === 'mic' ? null : 'mic')}>
-          <ChevronIcon />
-        </button>
-        {menu === 'mic' && (
-          <DeviceMenu
-            kind="audioinput"
-            value={voice.micDeviceId}
-            onSelect={(id) => voice.setMicDevice(id)}
-            onClose={() => setMenu(null)}
-          />
-        )}
-      </div>
-
-      <div className="ub-ctrl">
-        <button
-          className={`ub-btn ${voice.deafened ? 'off' : ''}`}
-          title={voice.deafened ? 'voltar a ouvir' : 'nao ouvir ninguem'}
-          onClick={() => voice.toggleDeafen()}
-        >
-          {voice.deafened ? <HeadphonesOffIcon size={18} /> : <HeadphonesIcon size={18} />}
-        </button>
-        <button className="ub-chev" title="escolher saida de audio" onClick={() => setMenu(menu === 'spk' ? null : 'spk')}>
-          <ChevronIcon />
-        </button>
-        {menu === 'spk' && (
-          <DeviceMenu
-            kind="audiooutput"
-            value={voice.spkDeviceId}
-            onSelect={(id) => voice.setSpkDevice(id)}
-            onClose={() => setMenu(null)}
-          />
-        )}
-      </div>
-
-      <button className="ub-btn" title="configuracoes" onClick={onOpenSettings}>
+      <button
+        className={`ub-btn ${voice.muted ? 'off' : ''}`}
+        title={voice.muted ? 'ativar microfone' : 'mutar'}
+        onClick={() => voice.toggleMute()}
+      >
+        {voice.muted ? <MicOffIcon size={18} /> : <MicIcon size={18} />}
+      </button>
+      <button
+        className={`ub-btn ${voice.deafened ? 'off' : ''}`}
+        title={voice.deafened ? 'voltar a ouvir' : 'nao ouvir ninguem'}
+        onClick={() => voice.toggleDeafen()}
+      >
+        {voice.deafened ? <HeadphonesOffIcon size={18} /> : <HeadphonesIcon size={18} />}
+      </button>
+      <button className="ub-btn gear" title="configuracoes (microfone, fone, conta)" onClick={onOpenSettings}>
         <GearIcon size={18} />
       </button>
     </div>

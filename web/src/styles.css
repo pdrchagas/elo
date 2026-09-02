@@ -542,6 +542,15 @@ input:focus {
 .ub-btn.off {
   color: var(--red);
 }
+.ub-btn.gear {
+  margin-left: 2px;
+}
+.ub-btn.gear:hover {
+  color: var(--text);
+  background: var(--accent);
+  transform: rotate(45deg);
+  transition: transform 0.15s;
+}
 .ub-chev {
   width: 14px;
   height: 30px;
