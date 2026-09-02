@@ -6,7 +6,12 @@ import { api } from './api.js'
 import Home from './Home.jsx'
 import Chat from './Chat.jsx'
 import VoiceStage from './VoiceStage.jsx'
-import { CreateServerDialog, InviteDialog, AddChannelDialog } from './Dialogs.jsx'
+import { CreateServerDialog, InviteDialog, AddChannelDialog, ConfirmDialog } from './Dialogs.jsx'
+import DeviceMenu from './DeviceMenu.jsx'
+import {
+  MicIcon, MicOffIcon, HeadphonesIcon, HeadphonesOffIcon,
+  ScreenIcon, CameraIcon, CameraOffIcon, HangupIcon, GearIcon, ChevronIcon, SignalBars,
+} from './icons.jsx'
 
 export default function Shell() {
   const {
@@ -14,7 +19,7 @@ export default function Shell() {
     selectServer, selectChannel, logout, refreshServers, refreshFriends,
   } = useStore()
   const voice = useVoice()
-  const [dialog, setDialog] = useState(null) // 'server' | 'invite' | 'channel'
+  const [dialog, setDialog] = useState(null) // 'server' | 'invite' | 'channel' | 'logout'
 
   const server = servers.find((s) => s.id === activeServerId) || null
   const channel = server?.channels.find((c) => c.id === activeChannelId) || null
@@ -121,9 +126,7 @@ export default function Shell() {
                   >
                     <span className="hash">🔊</span> {c.name}
                   </button>
-                  {voice.channelId === c.id && (
-                    <VoiceRoster />
-                  )}
+                  {voice.channelId === c.id && <VoiceRoster />}
                 </div>
               ))}
             </div>
@@ -137,29 +140,16 @@ export default function Shell() {
           </>
         )}
 
-        <VoiceDock channelInfo={voiceChannelInfo} />
+        <VoicePanel info={voiceChannelInfo} />
 
-        <div className="userbar">
-          <span className="avatar sm" style={{ background: user.color }}>
-            {user.displayName.slice(0, 1).toUpperCase()}
-          </span>
-          <div className="userbar-name">
-            <strong>{user.displayName}</strong>
-            <small>@{user.username}</small>
-          </div>
-          <button className="icon-btn" title="Sair" onClick={logout}>
-            ⎋
-          </button>
-        </div>
+        <UserBar user={user} onLogout={() => setDialog('logout')} />
       </aside>
 
       {/* conteudo principal */}
       <main className="content">
         {!server && <Home />}
         {server && channel?.type === 'text' && <Chat server={server} channel={channel} />}
-        {server && channel?.type === 'voice' && (
-          <VoiceStage server={server} channel={channel} />
-        )}
+        {server && channel?.type === 'voice' && <VoiceStage server={server} channel={channel} />}
       </main>
 
       {dialog === 'server' && <CreateServerDialog onClose={() => setDialog(null)} />}
@@ -168,6 +158,19 @@ export default function Shell() {
       )}
       {dialog === 'channel' && server && (
         <AddChannelDialog server={server} onClose={() => setDialog(null)} />
+      )}
+      {dialog === 'logout' && (
+        <ConfirmDialog
+          title="sair da conta"
+          message="tem certeza que quer sair da conta? voce vai precisar entrar de novo com usuario e senha."
+          confirmLabel="sair da conta"
+          danger
+          onConfirm={() => {
+            voice.channelId && voice.disconnect()
+            logout()
+          }}
+          onClose={() => setDialog(null)}
+        />
       )}
     </div>
   )
@@ -179,62 +182,138 @@ function VoiceRoster() {
   const others = Object.entries(voice.participants)
   return (
     <div className="roster">
-      <RosterItem name={`${me.displayName} (voce)`} speaking={voice.selfSpeaking} muted={voice.muted} sharing={voice.sharing} color={me.color} />
+      <RosterItem
+        name={`${me.displayName} (voce)`}
+        speaking={voice.selfSpeaking}
+        muted={voice.muted}
+        sharing={voice.sharing}
+        camera={voice.camera}
+        color={me.color}
+      />
       {others.map(([sid, p]) => (
         <RosterItem
           key={sid}
           name={p.user?.displayName || '…'}
+          color={p.user?.color}
           speaking={p.speaking}
           muted={p.state?.muted}
           sharing={p.state?.sharing}
+          camera={p.state?.camera}
         />
       ))}
     </div>
   )
 }
 
-function RosterItem({ name, speaking, muted, sharing, color = '#888' }) {
+function RosterItem({ name, speaking, muted, sharing, camera, color = '#888' }) {
   return (
     <div className={`roster-item ${speaking ? 'speaking' : ''}`}>
       <span className="dot" style={{ background: color }} />
       <span className="roster-name">{name}</span>
+      {camera && <span title="camera ligada">📹</span>}
       {sharing && <span title="compartilhando tela">🖥</span>}
       {muted && <span title="mudo">🔇</span>}
     </div>
   )
 }
 
-function VoiceDock({ channelInfo }) {
+function VoicePanel({ info }) {
   const voice = useVoice()
   if (!voice.channelId) return null
   return (
-    <div className="voice-dock">
-      <div className="voice-dock-top">
-        <span className={`pulse ${voice.connecting ? 'warn' : 'ok'}`} />
-        <div>
+    <div className="voice-panel">
+      <div className="vp-head">
+        <SignalBars active={!voice.connecting} />
+        <div className="vp-text">
           <strong>{voice.connecting ? 'conectando…' : 'voz conectada'}</strong>
-          <small>{channelInfo ? `${channelInfo.server.name} / ${channelInfo.channel.name}` : ''}</small>
+          <small>{info ? `${info.server.name} / ${info.channel.name}` : ''}</small>
         </div>
-        <button className="icon-btn danger" title="Desconectar" onClick={() => voice.disconnect()}>
-          ⏻
+        <button className="vp-hicon hangup" title="desconectar" onClick={() => voice.disconnect()}>
+          <HangupIcon size={18} />
         </button>
       </div>
-      {voice.error && <div className="voice-dock-error">{voice.error}</div>}
-      <div className="voice-dock-controls">
-        <button className={`ctrl ${voice.muted ? 'on' : ''}`} onClick={() => voice.toggleMute()} title="Microfone">
-          {voice.muted ? '🔇' : '🎙'}
-        </button>
-        <button className={`ctrl ${voice.deafened ? 'on' : ''}`} onClick={() => voice.toggleDeafen()} title="Silenciar tudo">
-          {voice.deafened ? '🔈' : '🎧'}
+
+      {voice.error && <div className="vp-error">{voice.error}</div>}
+
+      <div className="vp-grid">
+        <button
+          className={voice.camera ? 'on' : ''}
+          title={voice.camera ? 'desligar camera' : 'ligar camera'}
+          onClick={() => (voice.camera ? voice.stopCamera() : voice.startCamera())}
+        >
+          {voice.camera ? <CameraIcon /> : <CameraOffIcon />}
         </button>
         <button
-          className={`ctrl ${voice.sharing ? 'on' : ''}`}
+          className={voice.sharing ? 'on' : ''}
+          title={voice.sharing ? 'parar transmissao' : 'compartilhar tela'}
           onClick={() => (voice.sharing ? voice.stopShare() : voice.startShare())}
-          title="Compartilhar tela"
         >
-          🖥
+          <ScreenIcon />
         </button>
       </div>
+    </div>
+  )
+}
+
+function UserBar({ user, onLogout }) {
+  const voice = useVoice()
+  const [menu, setMenu] = useState(null) // 'mic' | 'spk'
+
+  return (
+    <div className="userbar">
+      <span className="avatar sm online" style={{ background: user.color }}>
+        {user.displayName.slice(0, 1).toUpperCase()}
+      </span>
+      <div className="userbar-name">
+        <strong>{user.displayName}</strong>
+        <small>@{user.username}</small>
+      </div>
+
+      <div className="ub-ctrl">
+        <button
+          className={`ub-btn ${voice.muted ? 'off' : ''}`}
+          title={voice.muted ? 'ativar microfone' : 'mutar'}
+          onClick={() => voice.toggleMute()}
+        >
+          {voice.muted ? <MicOffIcon size={18} /> : <MicIcon size={18} />}
+        </button>
+        <button className="ub-chev" title="escolher microfone" onClick={() => setMenu(menu === 'mic' ? null : 'mic')}>
+          <ChevronIcon />
+        </button>
+        {menu === 'mic' && (
+          <DeviceMenu
+            kind="audioinput"
+            value={voice.micDeviceId}
+            onSelect={(id) => voice.setMicDevice(id)}
+            onClose={() => setMenu(null)}
+          />
+        )}
+      </div>
+
+      <div className="ub-ctrl">
+        <button
+          className={`ub-btn ${voice.deafened ? 'off' : ''}`}
+          title={voice.deafened ? 'voltar a ouvir' : 'nao ouvir ninguem'}
+          onClick={() => voice.toggleDeafen()}
+        >
+          {voice.deafened ? <HeadphonesOffIcon size={18} /> : <HeadphonesIcon size={18} />}
+        </button>
+        <button className="ub-chev" title="escolher saida de audio" onClick={() => setMenu(menu === 'spk' ? null : 'spk')}>
+          <ChevronIcon />
+        </button>
+        {menu === 'spk' && (
+          <DeviceMenu
+            kind="audiooutput"
+            value={voice.spkDeviceId}
+            onSelect={(id) => voice.setSpkDevice(id)}
+            onClose={() => setMenu(null)}
+          />
+        )}
+      </div>
+
+      <button className="ub-btn" title="conta" onClick={onLogout}>
+        <GearIcon size={18} />
+      </button>
     </div>
   )
 }

@@ -6,6 +6,9 @@ import { createSpeakingDetector } from './audio.js'
 let mesh = null
 let cleanupMeta = null
 const speaking = new Map() // socketId | 'self' -> cleanup fn
+const rawStreams = new Map() // socketId -> Map(streamId -> MediaStream)
+const trackKinds = new Map() // socketId -> { mic, screen, camera }
+const micStreamId = new Map() // socketId -> id do stream com detector ativo
 
 function clearSpeaking() {
   for (const fn of speaking.values()) fn?.()
@@ -16,13 +19,18 @@ export const useVoice = create((set, get) => ({
   channelId: null,
   connecting: false,
   error: null,
-  muted: false,
-  deafened: false,
+  // preferencias persistem mesmo fora da call
+  muted: localStorage.getItem('elo_muted') === '1',
+  deafened: localStorage.getItem('elo_deafened') === '1',
+  micDeviceId: localStorage.getItem('elo_mic') || '',
+  spkDeviceId: localStorage.getItem('elo_spk') || '',
   sharing: false,
+  camera: false,
   selfSpeaking: false,
   localStream: null,
   screenStream: null,
-  participants: {}, // socketId -> { user, state, stream, speaking }
+  cameraStream: null,
+  participants: {}, // socketId -> { user, state, micStream, screenStream, cameraStream, speaking }
 
   async connect(channelId) {
     if (get().channelId === channelId) return
@@ -32,26 +40,61 @@ export const useVoice = create((set, get) => ({
     if (!socket) return set({ error: 'sem conexao com o servidor' })
 
     set({ connecting: true, channelId, error: null, participants: {} })
+    rawStreams.clear()
+    trackKinds.clear()
+    micStreamId.clear()
 
     const patch = (sid, data) =>
       set((s) => ({
         participants: { ...s.participants, [sid]: { ...(s.participants[sid] || {}), ...data } },
       }))
 
-    mesh = new MeshManager(socket, {
-      onRemoteStream: (sid, stream) => {
-        patch(sid, { stream })
+    const reconcile = (sid) => {
+      const raw = rawStreams.get(sid) || new Map()
+      const kinds = trackKinds.get(sid) || {}
+      const all = [...raw.values()]
+
+      const micStream = kinds.mic
+        ? raw.get(kinds.mic)
+        : all.find((st) => st.getAudioTracks().length > 0) || null
+      const cameraStream = kinds.camera ? raw.get(kinds.camera) : null
+      const screenStream = kinds.screen
+        ? raw.get(kinds.screen)
+        : all.find((st) => st.getVideoTracks().length > 0 && st !== cameraStream && st !== micStream) || null
+
+      patch(sid, { micStream, screenStream, cameraStream })
+
+      // (re)liga o detector de fala se o stream de microfone mudou
+      if (micStream && micStreamId.get(sid) !== micStream.id) {
         speaking.get(sid)?.()
+        micStreamId.set(sid, micStream.id)
         speaking.set(
           sid,
-          createSpeakingDetector(stream, (sp) => {
+          createSpeakingDetector(micStream, (sp) => {
             if (get().participants[sid]) patch(sid, { speaking: sp })
           }),
         )
+      }
+    }
+
+    mesh = new MeshManager(socket, {
+      onRemoteStream: (sid, stream) => {
+        const raw = rawStreams.get(sid) || new Map()
+        raw.set(stream.id, stream)
+        rawStreams.set(sid, raw)
+        stream.addEventListener('removetrack', () => reconcile(sid))
+        reconcile(sid)
+      },
+      onPeerTracks: (sid, kinds) => {
+        trackKinds.set(sid, kinds)
+        reconcile(sid)
       },
       onPeerGone: (sid) => {
         speaking.get(sid)?.()
         speaking.delete(sid)
+        rawStreams.delete(sid)
+        trackKinds.delete(sid)
+        micStreamId.delete(sid)
         set((s) => {
           const next = { ...s.participants }
           delete next[sid]
@@ -59,6 +102,14 @@ export const useVoice = create((set, get) => ({
         })
       },
       onScreenEnded: () => get().stopShare(),
+      onCameraEnded: () => get().stopCamera(),
+      onMicChanged: (stream) => {
+        speaking.get('self')?.()
+        speaking.set(
+          'self',
+          createSpeakingDetector(stream, (sp) => set({ selfSpeaking: sp && !get().muted })),
+        )
+      },
     })
 
     const onPeerJoined = ({ socketId, user, state }) => patch(socketId, { user, state })
@@ -83,13 +134,16 @@ export const useVoice = create((set, get) => ({
     }
 
     try {
-      const localStream = await mesh.start()
+      const localStream = await mesh.start(get().micDeviceId || undefined)
+      // aplica preferencia de mudo/surdo
+      mesh.setMuted(get().muted || get().deafened)
       set({ localStream, connecting: false })
       speaking.set(
         'self',
         createSpeakingDetector(localStream, (sp) => set({ selfSpeaking: sp && !get().muted })),
       )
       socket.emit('voice:join', { channelId })
+      socket.emit('voice:state', { muted: get().muted, deafened: get().deafened })
     } catch {
       set({ error: 'preciso da permissao do microfone para entrar na call' })
       get().disconnect()
@@ -101,17 +155,21 @@ export const useVoice = create((set, get) => ({
     cleanupMeta?.()
     cleanupMeta = null
     clearSpeaking()
+    rawStreams.clear()
+    trackKinds.clear()
+    micStreamId.clear()
     mesh?.destroy()
     mesh = null
+    // muted/deafened/micDeviceId/spkDeviceId sao preferencias — nao resetam
     set({
       channelId: null,
       connecting: false,
       participants: {},
       localStream: null,
       screenStream: null,
+      cameraStream: null,
       sharing: false,
-      muted: false,
-      deafened: false,
+      camera: false,
       selfSpeaking: false,
     })
   },
@@ -120,6 +178,7 @@ export const useVoice = create((set, get) => ({
     if (get().deafened) return
     const muted = !get().muted
     mesh?.setMuted(muted)
+    localStorage.setItem('elo_muted', muted ? '1' : '0')
     set({ muted, selfSpeaking: muted ? false : get().selfSpeaking })
     getSocket()?.emit('voice:state', { muted })
   },
@@ -128,8 +187,21 @@ export const useVoice = create((set, get) => ({
     const deafened = !get().deafened
     const muted = deafened || get().muted
     mesh?.setMuted(muted)
+    localStorage.setItem('elo_deafened', deafened ? '1' : '0')
+    localStorage.setItem('elo_muted', muted ? '1' : '0')
     set({ deafened, muted })
     getSocket()?.emit('voice:state', { deafened, muted })
+  },
+
+  async setMicDevice(id) {
+    localStorage.setItem('elo_mic', id || '')
+    set({ micDeviceId: id || '' })
+    await mesh?.setMicDevice(id || undefined)
+  },
+
+  setSpkDevice(id) {
+    localStorage.setItem('elo_spk', id || '')
+    set({ spkDeviceId: id || '' })
   },
 
   async startShare() {
@@ -146,5 +218,21 @@ export const useVoice = create((set, get) => ({
     mesh?.stopScreenShare()
     set({ sharing: false, screenStream: null })
     getSocket()?.emit('voice:state', { sharing: false })
+  },
+
+  async startCamera() {
+    try {
+      const cameraStream = await mesh?.startCamera()
+      set({ camera: true, cameraStream })
+      getSocket()?.emit('voice:state', { camera: true })
+    } catch {
+      /* cancelado / sem camera */
+    }
+  },
+
+  stopCamera() {
+    mesh?.stopCamera()
+    set({ camera: false, cameraStream: null })
+    getSocket()?.emit('voice:state', { camera: false })
   },
 }))

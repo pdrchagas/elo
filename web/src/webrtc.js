@@ -1,7 +1,9 @@
 // Gerenciador de malha WebRTC: uma RTCPeerConnection por participante.
-// Usa "perfect negotiation" para lidar com renegociacao (ligar/desligar tela).
-// Todo o audio/video de saida vai por um unico MediaStream (this.outbound),
-// entao cada peer recebe um stream so com tudo dentro.
+// Usa "perfect negotiation" para lidar com renegociacao (ligar/desligar tela/camera).
+//
+// Saidas: 3 MediaStreams independentes -> mic (this.outbound), tela (this.screenStream),
+// camera (this.camStream). Cada peer recebe ate 3 streams; qual e qual e avisado
+// por um "voice:signal" com { tracks: { mic, screen, camera } } (ids dos streams).
 
 const ICE_SERVERS = [
   { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
@@ -17,11 +19,12 @@ if (import.meta.env.VITE_TURN_URL) {
 export class MeshManager {
   constructor(socket, handlers = {}) {
     this.socket = socket
-    this.handlers = handlers // { onRemoteStream, onPeerGone, onScreenEnded }
+    this.handlers = handlers // { onRemoteStream, onPeerTracks, onPeerGone, onScreenEnded, onCameraEnded }
     this.peers = new Map() // socketId -> { pc, polite, makingOffer, ignoreOffer }
-    this.outbound = new MediaStream()
+    this.outbound = new MediaStream() // microfone
     this.micTrack = null
     this.screenStream = null
+    this.camStream = null
     this._bindings = {
       'voice:peers': this._onPeers.bind(this),
       'voice:peer-joined': this._onPeerJoined.bind(this),
@@ -30,9 +33,9 @@ export class MeshManager {
     }
   }
 
-  async start() {
+  async start(micDeviceId) {
     const mic = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      audio: this._micConstraints(micDeviceId),
       video: false,
     })
     this.micTrack = mic.getAudioTracks()[0]
@@ -41,13 +44,62 @@ export class MeshManager {
     return this.outbound
   }
 
+  _micConstraints(deviceId) {
+    return {
+      deviceId: deviceId ? { exact: deviceId } : undefined,
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true,
+    }
+  }
+
+  // troca o microfone sem derrubar a call (replaceTrack, sem renegociacao)
+  async setMicDevice(deviceId) {
+    const s = await navigator.mediaDevices.getUserMedia({
+      audio: this._micConstraints(deviceId),
+      video: false,
+    })
+    const newTrack = s.getAudioTracks()[0]
+    newTrack.enabled = this.micTrack ? this.micTrack.enabled : true
+    for (const { pc } of this.peers.values()) {
+      for (const sender of pc.getSenders()) {
+        if (sender.track && sender.track === this.micTrack) {
+          await sender.replaceTrack(newTrack).catch(() => {})
+        }
+      }
+    }
+    if (this.micTrack) {
+      this.outbound.removeTrack(this.micTrack)
+      this.micTrack.stop()
+    }
+    this.outbound.addTrack(newTrack)
+    this.micTrack = newTrack
+    this.handlers.onMicChanged?.(this.outbound)
+  }
+
+  _tracksPayload() {
+    return {
+      tracks: {
+        mic: this.outbound.id,
+        screen: this.screenStream?.id || null,
+        camera: this.camStream?.id || null,
+      },
+    }
+  }
+
+  _announceTo(socketId) {
+    this.socket.emit('voice:signal', { to: socketId, data: this._tracksPayload() })
+  }
+
+  _announceAll() {
+    for (const id of this.peers.keys()) this._announceTo(id)
+  }
+
   _onPeers({ peers }) {
-    // Sou o novato: eu inicio a negociacao com quem ja estava aqui.
     for (const p of peers) this._ensurePeer(p.socketId, true)
   }
 
   _onPeerJoined({ socketId }) {
-    // Alguem novo entrou: ele vai me mandar a oferta. Crio o peer como "polite".
     this._ensurePeer(socketId, false)
   }
 
@@ -63,6 +115,8 @@ export class MeshManager {
     this.peers.set(socketId, peer)
 
     for (const track of this.outbound.getTracks()) pc.addTrack(track, this.outbound)
+    if (this.screenStream) for (const t of this.screenStream.getTracks()) pc.addTrack(t, this.screenStream)
+    if (this.camStream) for (const t of this.camStream.getTracks()) pc.addTrack(t, this.camStream)
 
     pc.onicecandidate = ({ candidate }) => {
       if (candidate) this.socket.emit('voice:signal', { to: socketId, data: { candidate } })
@@ -91,10 +145,17 @@ export class MeshManager {
       }
     }
 
+    if (this.screenStream) this._capBitrate(this.screenStream, 3_000_000)
+    if (this.camStream) this._capBitrate(this.camStream, 700_000)
+    this._announceTo(socketId)
     return peer
   }
 
   async _onSignal({ from, data }) {
+    if (data.tracks) {
+      this.handlers.onPeerTracks?.(from, data.tracks)
+      return
+    }
     const peer = this._ensurePeer(from, false)
     const { pc } = peer
     try {
@@ -127,23 +188,68 @@ export class MeshManager {
 
   async startScreenShare() {
     this.screenStream = await navigator.mediaDevices.getDisplayMedia({
-      video: { frameRate: 30, width: { ideal: 1920 } },
+      video: { frameRate: { ideal: 30 }, height: { max: 1440 } },
       audio: true,
     })
     this.screenStream.getVideoTracks()[0]?.addEventListener('ended', () =>
       this.handlers.onScreenEnded?.(),
     )
-
-    for (const track of this.screenStream.getTracks()) {
-      this.outbound.addTrack(track)
-      for (const { pc } of this.peers.values()) pc.addTrack(track, this.outbound)
-    }
+    this._addStreamToPeers(this.screenStream)
+    this._capBitrate(this.screenStream, 3_000_000)
+    this._announceAll()
     return this.screenStream
+  }
+
+  // limita o bitrate de saida de um stream em todos os peers (protege CPU e rede)
+  _capBitrate(stream, maxBitrate) {
+    const tracks = new Set(stream.getTracks())
+    for (const { pc } of this.peers.values()) {
+      for (const sender of pc.getSenders()) {
+        if (!sender.track || !tracks.has(sender.track) || sender.track.kind !== 'video') continue
+        const params = sender.getParameters()
+        params.encodings = params.encodings?.length ? params.encodings : [{}]
+        params.encodings[0].maxBitrate = maxBitrate
+        sender.setParameters(params).catch(() => {})
+      }
+    }
   }
 
   stopScreenShare() {
     if (!this.screenStream) return
-    const tracks = new Set(this.screenStream.getTracks())
+    this._removeStreamFromPeers(this.screenStream)
+    this.screenStream = null
+    this._announceAll()
+  }
+
+  async startCamera() {
+    this.camStream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 24 } },
+      audio: false,
+    })
+    this.camStream.getVideoTracks()[0]?.addEventListener('ended', () =>
+      this.handlers.onCameraEnded?.(),
+    )
+    this._addStreamToPeers(this.camStream)
+    this._capBitrate(this.camStream, 700_000)
+    this._announceAll()
+    return this.camStream
+  }
+
+  stopCamera() {
+    if (!this.camStream) return
+    this._removeStreamFromPeers(this.camStream)
+    this.camStream = null
+    this._announceAll()
+  }
+
+  _addStreamToPeers(stream) {
+    for (const track of stream.getTracks()) {
+      for (const { pc } of this.peers.values()) pc.addTrack(track, stream)
+    }
+  }
+
+  _removeStreamFromPeers(stream) {
+    const tracks = new Set(stream.getTracks())
     for (const { pc } of this.peers.values()) {
       for (const sender of pc.getSenders()) {
         if (sender.track && tracks.has(sender.track)) {
@@ -151,11 +257,7 @@ export class MeshManager {
         }
       }
     }
-    for (const track of tracks) {
-      this.outbound.removeTrack(track)
-      track.stop()
-    }
-    this.screenStream = null
+    for (const track of tracks) track.stop()
   }
 
   _destroyPeer(socketId) {
@@ -169,7 +271,11 @@ export class MeshManager {
   destroy() {
     for (const [event, fn] of Object.entries(this._bindings)) this.socket.off(event, fn)
     for (const id of [...this.peers.keys()]) this._destroyPeer(id)
-    this.stopScreenShare()
+    for (const s of [this.screenStream, this.camStream]) {
+      for (const t of s?.getTracks() || []) t.stop()
+    }
+    this.screenStream = null
+    this.camStream = null
     this.micTrack?.stop()
     this.micTrack = null
     this.outbound = new MediaStream()

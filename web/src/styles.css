@@ -111,6 +111,29 @@ input:focus {
   border-color: var(--accent);
 }
 
+.pw-field {
+  position: relative;
+}
+.pw-field input {
+  padding-right: 40px;
+}
+.pw-toggle {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  display: grid;
+  place-content: center;
+  font-size: 15px;
+  color: var(--text-dim);
+}
+.pw-toggle:hover {
+  background: #ffffff0d;
+}
+
 .btn {
   background: var(--bg-3);
   padding: 10px 16px;
@@ -134,6 +157,13 @@ input:focus {
 .btn.ghost:hover {
   color: var(--text);
   background: #ffffff0d;
+}
+.btn.danger {
+  background: var(--red);
+  color: #fff;
+}
+.btn.danger:hover {
+  background: #d83a3d;
 }
 .btn.full {
   width: 100%;
@@ -348,92 +378,225 @@ input:focus {
   white-space: nowrap;
 }
 
-/* voice dock */
-.voice-dock {
+/* painel de voz (estilo Discord) */
+.voice-panel {
   background: #232428;
   padding: 8px;
-  border-top: 1px solid #0004;
+  border-top: 1px solid #0005;
+  flex-shrink: 0;
+  display: grid;
+  gap: 8px;
 }
-.voice-dock-top {
+.vp-head {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px;
 }
-.voice-dock-top strong {
+.signal-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.signal-bars i {
+  width: 3px;
+  background: var(--text-dim);
+  border-radius: 1px;
+}
+.signal-bars i:nth-child(1) { height: 30%; }
+.signal-bars i:nth-child(2) { height: 55%; }
+.signal-bars i:nth-child(3) { height: 78%; }
+.signal-bars i:nth-child(4) { height: 100%; }
+.signal-bars.live i {
+  background: var(--green);
+}
+.signal-bars:not(.live) i {
+  animation: barPulse 1s ease-in-out infinite;
+}
+.signal-bars:not(.live) i:nth-child(2) { animation-delay: 0.15s; }
+.signal-bars:not(.live) i:nth-child(3) { animation-delay: 0.3s; }
+.signal-bars:not(.live) i:nth-child(4) { animation-delay: 0.45s; }
+@keyframes barPulse {
+  50% { opacity: 0.3; }
+}
+.vp-text {
+  flex: 1;
+  overflow: hidden;
+}
+.vp-text strong {
   display: block;
   font-size: 13px;
   color: var(--green);
 }
-.voice-dock-top small {
-  font-size: 11px;
-}
-.voice-dock-top div {
-  flex: 1;
-  overflow: hidden;
-}
-.voice-dock-top small {
+.vp-text small {
   display: block;
+  font-size: 11px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.pulse {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--green);
+.vp-hicon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: grid;
+  place-content: center;
+  font-size: 15px;
+  color: var(--text-dim);
   flex-shrink: 0;
 }
-.pulse.warn {
-  background: #faa61a;
+.vp-hicon:hover {
+  background: #ffffff0d;
+  color: var(--text);
 }
-.voice-dock-error {
+.vp-hicon.hangup:hover {
+  background: var(--red);
+  color: #fff;
+}
+.vp-error {
   color: #ff8f92;
   font-size: 12px;
-  padding: 4px;
-}
-.voice-dock-controls {
-  display: flex;
-  gap: 6px;
-  margin-top: 6px;
-}
-.ctrl {
-  flex: 1;
-  background: var(--bg-3);
-  padding: 8px;
+  background: #f23f4318;
+  padding: 6px 8px;
   border-radius: 6px;
-  font-size: 15px;
 }
-.ctrl:hover {
+.vp-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.vp-grid button {
+  background: var(--bg-3);
+  border-radius: 8px;
+  height: 40px;
+  color: var(--text);
+  display: grid;
+  place-content: center;
+}
+.vp-grid button:hover {
   background: #4a4d55;
 }
-.ctrl.on {
+.vp-grid button.on {
+  background: var(--accent);
+  color: #fff;
+}
+
+.icon-btn.danger {
+  color: #fff;
   background: var(--red);
 }
-.ctrl.danger {
-  background: #4a2528;
-}
-.ctrl.danger:hover {
-  background: var(--red);
-}
-.ctrl.lg {
-  flex: none;
-  padding: 12px 18px;
-  font-size: 14px;
-  font-weight: 600;
+.icon-btn.danger:hover {
+  background: #d83a3d;
+  color: #fff;
 }
 
 .userbar {
   background: #232428;
-  padding: 8px 10px;
+  padding: 6px 8px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 2px;
+  flex-shrink: 0;
+  position: relative;
+}
+.userbar .avatar {
+  margin-right: 6px;
+}
+.avatar.online {
+  position: relative;
+}
+.avatar.online::after {
+  content: '';
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--green);
+  border: 2px solid #232428;
 }
 .userbar-name {
   flex: 1;
   overflow: hidden;
+}
+
+.ub-ctrl {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+.ub-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  display: grid;
+  place-content: center;
+  color: var(--text-dim);
+}
+.ub-btn:hover {
+  color: var(--text);
+  background: #ffffff0d;
+}
+.ub-btn.off {
+  color: var(--red);
+}
+.ub-chev {
+  width: 14px;
+  height: 30px;
+  display: grid;
+  place-content: center;
+  color: var(--text-dim);
+  border-radius: 4px;
+}
+.ub-chev:hover {
+  color: var(--text);
+  background: #ffffff0d;
+}
+
+.device-menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  right: 0;
+  width: 230px;
+  background: var(--bg-0);
+  border: 1px solid #0006;
+  border-radius: 10px;
+  padding: 6px;
+  z-index: 40;
+  box-shadow: 0 12px 32px #0009;
+  display: grid;
+  gap: 2px;
+}
+.device-menu-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  padding: 6px 8px 2px;
+}
+.device-menu-note {
+  font-size: 11px;
+  color: #ff8f92;
+  padding: 0 8px 4px;
+}
+.device-opt {
+  text-align: left;
+  padding: 7px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.device-opt:hover {
+  background: #ffffff0d;
+}
+.device-opt.on {
+  background: var(--accent);
+  color: #fff;
 }
 .userbar-name strong {
   display: block;
@@ -476,9 +639,6 @@ input:focus {
   width: 22px;
   height: 22px;
   font-size: 13px;
-}
-.icon-btn.danger:hover {
-  color: var(--red);
 }
 
 /* ---------- content ---------- */
@@ -602,77 +762,148 @@ input:focus {
   flex-direction: column;
   min-height: 0;
   flex: 1;
+  overflow: hidden;
 }
+
+/* area central rolavel — nunca empurra a barra de controle pra fora */
+.voice-stage-main {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
 .voice-join {
   margin: auto;
   text-align: center;
   display: grid;
   gap: 14px;
   color: var(--text-dim);
+  padding: 24px;
 }
+.voice-join-icon {
+  font-size: 44px;
+}
+
 .screen-grid {
-  padding: 16px;
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  overflow-y: auto;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   flex-shrink: 0;
-  max-height: 60%;
+}
+.screen-grid.single {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 960px;
+  margin: 0 auto;
+  width: 100%;
 }
 .screen-tile {
   position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
   background: #000;
-  border-radius: 10px;
+  border-radius: 12px;
   overflow: hidden;
   aspect-ratio: 16 / 9;
+  border: 1px solid #ffffff14;
+  transition: border-color 0.12s, transform 0.12s;
+}
+.screen-tile:hover {
+  border-color: var(--accent);
 }
 .screen-tile video {
   width: 100%;
   height: 100%;
   object-fit: contain;
   background: #000;
+  display: block;
 }
 .screen-label {
   position: absolute;
-  left: 8px;
-  bottom: 8px;
-  background: #000a;
-  padding: 3px 8px;
-  border-radius: 6px;
+  left: 10px;
+  bottom: 10px;
+  background: #000c;
+  padding: 4px 10px;
+  border-radius: 8px;
   font-size: 12px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.screen-modal {
+  position: fixed;
+  inset: 0;
+  background: #000d;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  gap: 12px;
+}
+.screen-modal-video {
+  max-width: 100%;
+  max-height: calc(100% - 48px);
+  border-radius: 12px;
+  background: #000;
+}
+.screen-modal-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  color: #fff;
+  font-weight: 600;
 }
 
 .people-grid {
-  flex: 1;
-  overflow-y: auto;
-  padding: 16px;
   display: grid;
   gap: 12px;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   align-content: start;
+  flex-shrink: 0;
 }
 .person-card {
   background: var(--bg-1);
-  border-radius: 10px;
-  padding: 18px 12px;
+  border-radius: 12px;
+  padding: 20px 12px;
   display: grid;
-  gap: 8px;
+  gap: 10px;
   justify-items: center;
   border: 2px solid transparent;
-  transition: border-color 0.1s;
+  transition: border-color 0.12s, background 0.12s;
 }
 .person-card.speaking {
   border-color: var(--green);
+  background: #23a55a14;
 }
 .person-avatar {
-  width: 56px;
-  height: 56px;
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
   display: grid;
   place-content: center;
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 700;
   color: #fff;
+  box-shadow: 0 4px 12px #0004;
+}
+.person-card.speaking .person-avatar {
+  box-shadow: 0 0 0 3px var(--green), 0 4px 12px #0004;
+}
+.person-cam {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 10px;
+  object-fit: cover;
+  background: #000;
+}
+.person-cam.mirror {
+  transform: scaleX(-1);
 }
 .person-name {
   font-size: 13px;
@@ -689,13 +920,44 @@ input:focus {
   font-size: 13px;
   min-height: 16px;
 }
-.stage-controls {
-  display: flex;
-  gap: 10px;
-  padding: 14px 16px 20px;
-  justify-content: center;
-  flex-wrap: wrap;
+
+/* barra de controle fixa no rodape do palco */
+.control-bar {
   flex-shrink: 0;
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  padding: 14px;
+  background: var(--bg-1);
+  border-top: 1px solid #0005;
+}
+.round {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--bg-3);
+  font-size: 20px;
+  display: grid;
+  place-content: center;
+  transition: background 0.12s, transform 0.12s;
+}
+.round:hover {
+  background: #4a4d55;
+  transform: translateY(-2px);
+}
+.round.active {
+  background: var(--accent);
+}
+.round.danger {
+  background: var(--red);
+}
+.round.leave {
+  background: var(--red);
+  transform: rotate(135deg);
+}
+.round.leave:hover {
+  background: #d83a3d;
+  transform: rotate(135deg) translateY(-2px);
 }
 
 /* ---------- modal ---------- */
@@ -739,6 +1001,14 @@ input:focus {
 .modal-body section:first-child {
   border-top: none;
   padding-top: 0;
+}
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.modal-actions .btn {
+  min-width: 96px;
 }
 .modal-body h4 {
   font-size: 13px;

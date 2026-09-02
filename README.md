@@ -59,13 +59,16 @@ Se algum amigo estiver atrás de NAT restritivo (CGNAT, redes corporativas), a c
 nesse caso configure um servidor **TURN** (ex.: [coturn](https://github.com/coturn/coturn) ou um
 serviço como Metered/Twilio) nas variáveis `VITE_TURN_*` em `web/.env`.
 
-## Deploy (resumo)
+## Deploy
 
-- **Backend**: qualquer host Node (Render, Railway, Fly, VPS). Precisa de WebSocket. Defina
-  `JWT_SECRET` e `CLIENT_ORIGIN`.
-- **Frontend**: `npm run build --prefix web` gera `web/dist`. Sirva como site estático (Cloudflare
-  Pages, Netlify, Vercel) apontando `VITE_API_URL` para o backend — **ou** deixe o próprio backend
-  servir: se `web/dist` existir, o Express serve o front na mesma origem.
+Passo a passo completo (Render + MongoDB Atlas, grátis) em **[TESTAR-ONLINE.md](TESTAR-ONLINE.md)**.
+
+Resumo:
+- É **um serviço só**: o Express serve `web/dist` na mesma origem (se a pasta existir).
+- **Banco**: sem `MONGODB_URI` usa o arquivo `server/data/db.json`; com `MONGODB_URI` usa MongoDB
+  (recomendado em produção — o disco do Render free é efêmero).
+- Env do backend: `JWT_SECRET`, `CLIENT_ORIGIN`, `MONGODB_URI`, `MONGODB_DB`.
+- O build de produção (`web/.env.production`) deixa `VITE_API_URL` vazio → mesma origem.
 - Use **HTTPS** em produção: `getUserMedia`/`getDisplayMedia` só funcionam em contexto seguro
   (localhost é exceção).
 

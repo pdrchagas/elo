@@ -1,0 +1,20 @@
+name: keep-alive
+
+# Mantem o serviço do Render (plano grátis) acordado batendo no health check.
+# Requer o secret RENDER_URL (ex.: https://elo-xxxx.onrender.com).
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: ping health
+        run: |
+          if [ -z "${{ secrets.RENDER_URL }}" ]; then
+            echo "defina o secret RENDER_URL"; exit 0
+          fi
+          curl -fsS --max-time 60 "${{ secrets.RENDER_URL }}/api/health" && echo " ok" || echo "sem resposta (pode estar acordando)"

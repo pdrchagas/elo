@@ -16,6 +16,26 @@ function Modal({ title, onClose, children }) {
   )
 }
 
+export function ConfirmDialog({ title, message, confirmLabel = 'confirmar', danger, onConfirm, onClose }) {
+  return (
+    <Modal title={title} onClose={onClose}>
+      <p className="hint">{message}</p>
+      <div className="modal-actions">
+        <button className="btn" onClick={onClose}>cancelar</button>
+        <button
+          className={`btn ${danger ? 'danger' : 'primary'}`}
+          onClick={() => {
+            onConfirm()
+            onClose()
+          }}
+        >
+          {confirmLabel}
+        </button>
+      </div>
+    </Modal>
+  )
+}
+
 export function CreateServerDialog({ onClose }) {
   const { friends, refreshAll, selectServer } = useStore()
   const accepted = friends.filter((f) => f.status === 'accepted')

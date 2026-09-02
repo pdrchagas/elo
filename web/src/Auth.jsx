@@ -12,6 +12,7 @@ export default function Auth() {
   const [form, setForm] = useState({ username: '', password: '', displayName: '' })
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [showPw, setShowPw] = useState(false)
 
   useEffect(() => {
     if (inviteCode) {
@@ -70,13 +71,23 @@ export default function Auth() {
           )}
           <label>
             senha
-            <input
-              type="password"
-              value={form.password}
-              onChange={set('password')}
-              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-              required
-            />
+            <div className="pw-field">
+              <input
+                type={showPw ? 'text' : 'password'}
+                value={form.password}
+                onChange={set('password')}
+                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                required
+              />
+              <button
+                type="button"
+                className="pw-toggle"
+                onClick={() => setShowPw((v) => !v)}
+                title={showPw ? 'ocultar senha' : 'mostrar senha'}
+              >
+                {showPw ? '🙈' : '👁'}
+              </button>
+            </div>
           </label>
 
           {error && <div className="form-error">{error}</div>}
