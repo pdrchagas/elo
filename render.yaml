@@ -3,7 +3,7 @@ services:
     name: elo
     runtime: node
     plan: free
-    buildCommand: npm install && npm run install:all && npm run build
+    buildCommand: npm --prefix server install && npm --prefix web install --include=dev && npm --prefix web run build
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:
