@@ -901,6 +901,171 @@ input:focus {
   }
 }
 
+/* ---------- pagina de configuracoes ---------- */
+.settings {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  background: var(--bg-2);
+}
+.settings-nav {
+  width: 240px;
+  background: var(--bg-1);
+  padding: 16px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.settings-nav-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  padding: 6px 10px;
+}
+.settings-nav button {
+  text-align: left;
+  padding: 9px 10px;
+  border-radius: 6px;
+  color: var(--text-dim);
+  font-weight: 600;
+  font-size: 14px;
+}
+.settings-nav button:hover {
+  background: #ffffff0d;
+  color: var(--text);
+}
+.settings-nav button.active {
+  background: #ffffff1a;
+  color: #fff;
+}
+.settings-nav-spacer {
+  flex: 1;
+}
+.settings-logout {
+  color: var(--red) !important;
+  border: 1px solid #f23f4355;
+}
+.settings-logout:hover {
+  background: var(--red) !important;
+  color: #fff !important;
+}
+
+.settings-body {
+  flex: 1;
+  padding: 48px 56px;
+  overflow-y: auto;
+  position: relative;
+  max-width: 780px;
+}
+.settings-close {
+  position: absolute;
+  top: 24px;
+  right: 28px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid var(--text-dim);
+  color: var(--text-dim);
+  font-size: 16px;
+  display: grid;
+  place-content: center;
+}
+.settings-close:hover {
+  color: #fff;
+  border-color: #fff;
+  background: #ffffff12;
+}
+
+.settings-section h2 {
+  font-size: 20px;
+  margin-bottom: 20px;
+  text-transform: capitalize;
+}
+.settings-grid {
+  display: grid;
+  gap: 18px;
+  max-width: 520px;
+}
+.settings-grid label {
+  gap: 8px;
+}
+.settings-grid select {
+  background: var(--bg-0);
+  color: var(--text);
+  border: 1px solid #0004;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font: inherit;
+  width: 100%;
+  text-transform: none;
+}
+.settings-grid select:disabled {
+  opacity: 0.5;
+}
+.settings-grid label small {
+  text-transform: none;
+  font-weight: 400;
+}
+
+.mic-test {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 22px 0 8px;
+  max-width: 520px;
+}
+.mic-bar {
+  flex: 1;
+  height: 10px;
+  border-radius: 5px;
+  background: var(--bg-0);
+  overflow: hidden;
+}
+.mic-bar div {
+  height: 100%;
+  background: var(--green);
+  border-radius: 5px;
+  transition: width 0.08s linear;
+}
+
+.settings-account {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--bg-1);
+  padding: 16px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+.settings-account strong {
+  display: block;
+}
+.settings-account small {
+  display: inline;
+}
+
+@media (max-width: 640px) {
+  .settings {
+    flex-direction: column;
+  }
+  .settings-nav {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    padding: 10px;
+  }
+  .settings-nav-title,
+  .settings-nav-spacer {
+    display: none;
+  }
+  .settings-body {
+    padding: 24px 20px;
+  }
+}
+
 /* voice stage */
 .voice-stage {
   display: flex;

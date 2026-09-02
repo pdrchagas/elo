@@ -6,6 +6,7 @@ import Home from './Home.jsx'
 import Chat from './Chat.jsx'
 import VoiceStage from './VoiceStage.jsx'
 import MembersPanel from './MembersPanel.jsx'
+import Settings from './Settings.jsx'
 import { CreateServerDialog, InviteDialog, AddChannelDialog, ConfirmDialog } from './Dialogs.jsx'
 import DeviceMenu from './DeviceMenu.jsx'
 import {
@@ -138,7 +139,7 @@ export default function Shell() {
 
         <VoicePanel info={voiceChannelInfo} />
 
-        <UserBar user={user} onLogout={() => setDialog('logout')} />
+        <UserBar user={user} onOpenSettings={() => setDialog('settings')} />
       </aside>
 
       {/* conteudo principal */}
@@ -156,6 +157,9 @@ export default function Shell() {
       )}
       {dialog === 'channel' && server && (
         <AddChannelDialog server={server} onClose={() => setDialog(null)} />
+      )}
+      {dialog === 'settings' && (
+        <Settings onClose={() => setDialog(null)} onLogout={() => setDialog('logout')} />
       )}
       {dialog === 'logout' && (
         <ConfirmDialog
@@ -253,7 +257,7 @@ function VoicePanel({ info }) {
   )
 }
 
-function UserBar({ user, onLogout }) {
+function UserBar({ user, onOpenSettings }) {
   const voice = useVoice()
   const [menu, setMenu] = useState(null) // 'mic' | 'spk'
 
@@ -309,7 +313,7 @@ function UserBar({ user, onLogout }) {
         )}
       </div>
 
-      <button className="ub-btn" title="conta" onClick={onLogout}>
+      <button className="ub-btn" title="configuracoes" onClick={onOpenSettings}>
         <GearIcon size={18} />
       </button>
     </div>
