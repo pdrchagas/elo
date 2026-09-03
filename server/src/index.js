@@ -14,6 +14,7 @@ import authRoutes from './routes/auth.js'
 import inviteRoutes from './routes/invites.js'
 import friendRoutes from './routes/friends.js'
 import serverRoutes from './routes/servers.js'
+import adminRoutes from './routes/admin.js'
 import { registerSignaling } from './signaling.js'
 import { initRealtime } from './realtime.js'
 
@@ -74,6 +75,7 @@ app.use('/api/auth', authRoutes)
 app.use('/api/invites', inviteRoutes)
 app.use('/api/friends', friendRoutes)
 app.use('/api/servers', serverRoutes)
+app.use('/api/admin', adminRoutes)
 
 // serve o frontend compilado, se existir (deploy num unico servico)
 const webDist = path.join(__dirname, '..', '..', 'web', 'dist')

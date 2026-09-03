@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useVoice } from './voice.js'
 import { useStore } from './store.js'
 import Avatar from './Avatar.jsx'
+import AdminUsers from './AdminUsers.jsx'
 import { fileToAvatar } from './media.js'
 
 export default function Settings({ onClose, onLogout, initialTab = 'perfil' }) {
@@ -88,6 +89,11 @@ export default function Settings({ onClose, onLogout, initialTab = 'perfil' }) {
         <button className={tab === 'voz' ? 'active' : ''} onClick={() => setTab('voz')}>
           🎙 voz e video
         </button>
+        {user.isAdmin && (
+          <button className={tab === 'usuarios' ? 'active' : ''} onClick={() => setTab('usuarios')}>
+            🛡 usuarios
+          </button>
+        )}
         <div className="settings-nav-spacer" />
         <button className="settings-logout" onClick={onLogout}>
           sair da conta
@@ -98,6 +104,8 @@ export default function Settings({ onClose, onLogout, initialTab = 'perfil' }) {
         <button className="settings-close" onClick={onClose} title="fechar">
           ✕
         </button>
+
+        {tab === 'usuarios' && user.isAdmin && <AdminUsers />}
 
         {tab === 'voz' && (
           <div className="settings-section">

@@ -67,6 +67,10 @@ export const useStore = create((set, get) => ({
         get().refreshAll()
       }
     })
+    socket.on('kicked', () => {
+      alert('sua conta foi removida pelo admin.')
+      get().logout()
+    })
     socket.on('presence', ({ userId, online }) => {
       set((s) => {
         const next = { ...s.online }

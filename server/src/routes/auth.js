@@ -94,6 +94,9 @@ r.post('/login', async (req, res) => {
   if (!user || !bcrypt.compareSync(String(req.body?.password || ''), user.passwordHash)) {
     return res.status(401).json({ error: 'usuario ou senha invalidos' })
   }
+  user.lastLogin = Date.now()
+  user.loginCount = (user.loginCount || 0) + 1
+  await db.write()
   res.json({ token: signToken(user), user: publicUser(user) })
 })
 
