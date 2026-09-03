@@ -3,7 +3,7 @@ import { db, nanoid } from '../db.js'
 import { authMiddleware } from '../auth.js'
 import { publicUser } from './auth.js'
 import { messages } from '../messages.js'
-import { notifyUser, notifyServer, isOnline } from '../realtime.js'
+import { notifyUser, notifyServer, isOnline, getVoiceRoster } from '../realtime.js'
 import { isAppAdmin, isServerOwner, memberCan } from '../perms.js'
 
 const r = Router()
@@ -44,6 +44,11 @@ function hydrate(s, uid) {
     channels: db.data.channels
       .filter((c) => c.serverId === s.id)
       .sort((a, b) => a.position - b.position),
+    voiceRosters: Object.fromEntries(
+      db.data.channels
+        .filter((c) => c.serverId === s.id && c.type === 'voice')
+        .map((c) => [c.id, getVoiceRoster(c.id)]),
+    ),
     members: db.data.members
       .filter((m) => m.serverId === s.id)
       .map((m) => {

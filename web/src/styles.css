@@ -373,14 +373,14 @@ input:not([type='checkbox']):not([type='radio']):focus {
 }
 
 .roster {
-  padding: 2px 8px 6px 22px;
+  padding: 2px 8px 6px 18px;
   display: grid;
-  gap: 2px;
+  gap: 1px;
 }
 .roster-item {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   font-size: 13px;
   padding: 3px 6px;
   border-radius: 4px;
@@ -389,8 +389,12 @@ input:not([type='checkbox']):not([type='radio']):focus {
 .roster-item.speaking {
   color: #fff;
 }
-.roster-item.speaking .dot {
+.roster-item.speaking .av {
   box-shadow: 0 0 0 2px var(--green);
+}
+.roster-item svg {
+  flex-shrink: 0;
+  color: var(--text-dim);
 }
 .dot {
   width: 8px;
@@ -1571,6 +1575,16 @@ input:not([type='checkbox']):not([type='radio']):focus {
   gap: 6px;
   font-size: 13px;
   min-height: 16px;
+  align-items: center;
+  color: var(--text-dim);
+}
+.person-badges .pb-red {
+  color: var(--red);
+  display: inline-flex;
+}
+.person-badges .pb-dim {
+  opacity: 0.7;
+  display: inline-flex;
 }
 
 /* barra de controle fixa no rodape do palco */

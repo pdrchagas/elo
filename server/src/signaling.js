@@ -1,7 +1,18 @@
 import { db, nanoid } from './db.js'
 import { messages } from './messages.js'
-import { trackPresence } from './realtime.js'
+import { trackPresence, notifyServer, setVoiceRoster } from './realtime.js'
 import { memberCan, serverOfChannel } from './perms.js'
+
+function briefOf(u) {
+  const rec = db.data.users.find((x) => x.id === u.id)
+  return {
+    id: u.id,
+    username: u.username,
+    displayName: rec?.displayName || u.displayName,
+    color: rec?.color || '#5865F2',
+    avatar: rec?.avatar || null,
+  }
+}
 
 // Sinalizacao WebRTC (malha P2P) + chat de texto em tempo real.
 // O servidor so repassa mensagens de negociacao; a midia vai direto entre os navegadores.
@@ -27,6 +38,19 @@ export function registerSignaling(io) {
   const chatLimit = makeLimiter(15, 10_000) // 15 msgs / 10s
   const signalLimit = makeLimiter(200, 10_000) // negociacao WebRTC e verbosa
 
+  // monta e transmite pra TODO o servidor quem esta num canal de voz (mesmo quem nao entrou)
+  function broadcastRoster(channelId) {
+    const room = io.sockets.adapter.rooms.get(`voice:${channelId}`) || new Set()
+    const members = []
+    for (const sid of room) {
+      const s = io.sockets.sockets.get(sid)
+      if (s?.user) members.push({ socketId: sid, ...briefOf(s.user), state: s.voiceState || {} })
+    }
+    setVoiceRoster(channelId, members)
+    const ch = db.data.channels.find((c) => c.id === channelId)
+    if (ch) notifyServer(ch.serverId, 'voice:roster', { channelId, members })
+  }
+
   io.on('connection', (socket) => {
     const user = socket.user
     let currentChannel = null
@@ -37,10 +61,12 @@ export function registerSignaling(io) {
 
     function leaveVoice() {
       if (!currentChannel) return
-      socket.to(voiceRoom(currentChannel)).emit('voice:peer-left', { socketId: socket.id })
-      socket.leave(voiceRoom(currentChannel))
+      const left = currentChannel
+      socket.to(voiceRoom(left)).emit('voice:peer-left', { socketId: socket.id })
+      socket.leave(voiceRoom(left))
       currentChannel = null
       socket.voiceState = null
+      broadcastRoster(left)
     }
 
     function canUseChannel(channelId, type) {
@@ -50,17 +76,6 @@ export function registerSignaling(io) {
       if (rec?.isAdmin) return ch
       const member = db.data.members.find((m) => m.serverId === ch.serverId && m.userId === user.id)
       return member ? ch : null
-    }
-
-    function brief(u) {
-      const rec = db.data.users.find((x) => x.id === u.id)
-      return {
-        id: u.id,
-        username: u.username,
-        displayName: u.displayName,
-        color: rec?.color || '#5865F2',
-        avatar: rec?.avatar || null,
-      }
     }
 
     // ---- Voz / tela ----
@@ -75,14 +90,15 @@ export function registerSignaling(io) {
       for (const sid of io.sockets.adapter.rooms.get(voiceRoom(channelId)) || []) {
         if (sid === socket.id) continue
         const s = io.sockets.sockets.get(sid)
-        if (s) peers.push({ socketId: sid, user: brief(s.user), state: s.voiceState || {} })
+        if (s) peers.push({ socketId: sid, user: briefOf(s.user), state: s.voiceState || {} })
       }
       socket.emit('voice:peers', { channelId, peers })
       socket.to(voiceRoom(channelId)).emit('voice:peer-joined', {
         socketId: socket.id,
-        user: brief(user),
+        user: briefOf(user),
         state: socket.voiceState,
       })
+      broadcastRoster(channelId)
     })
 
     socket.on('voice:signal', ({ to, data } = {}) => {
@@ -107,6 +123,7 @@ export function registerSignaling(io) {
           socketId: socket.id,
           state: socket.voiceState,
         })
+        broadcastRoster(currentChannel)
       }
     })
 
@@ -132,6 +149,7 @@ export function registerSignaling(io) {
           socketId: targetSocketId,
           state: target.voiceState,
         })
+        broadcastRoster(currentChannel)
       } else if (action === 'move') {
         if (!memberCan(server, user.id, 'canMove')) return
         const dest = db.data.channels.find((c) => c.id === toChannelId && c.type === 'voice')

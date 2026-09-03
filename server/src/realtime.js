@@ -4,6 +4,16 @@ import { db } from './db.js'
 
 let ioRef = null
 const online = new Map() // userId -> Set<socketId>
+const voiceRosters = new Map() // channelId -> [{ socketId, id, username, displayName, color, avatar, state }]
+
+// quem esta em cada canal de voz — visivel pra todo mundo do servidor
+export function setVoiceRoster(channelId, members) {
+  if (members && members.length) voiceRosters.set(channelId, members)
+  else voiceRosters.delete(channelId)
+}
+export function getVoiceRoster(channelId) {
+  return voiceRosters.get(channelId) || []
+}
 
 export function initRealtime(io) {
   ioRef = io

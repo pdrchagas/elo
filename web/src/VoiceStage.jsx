@@ -357,12 +357,12 @@ function PersonCard({
       )}
       <span className="person-name">{name}</span>
       <div className="person-badges">
-        {sharing && <span title="compartilhando tela">🖥</span>}
-        {deafened && <span title="surdo">🎧</span>}
+        {sharing && <ScreenIcon size={15} />}
+        {deafened && <span className="pb-red"><HeadphonesOffIcon size={15} /></span>}
         {forceMuted ? (
-          <span title="silenciado pelo servidor">🚫</span>
+          <span className="pb-red" title="silenciado pelo servidor"><MicOffIcon size={15} /></span>
         ) : (
-          muted && <span title="mudo">🔇</span>
+          muted && <span className="pb-dim"><MicOffIcon size={15} /></span>
         )}
       </div>
       {micStream && <audio ref={audioRef} autoPlay playsInline muted={!!deafenedByMe} />}

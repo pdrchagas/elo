@@ -2,18 +2,22 @@ import { create } from 'zustand'
 import { api, setToken, getToken } from './api.js'
 import { connectSocket, disconnectSocket, getSocket } from './socket.js'
 
+let autoRefreshWired = false
+
 export const useStore = create((set, get) => ({
   user: null,
   booting: true,
   servers: [],
   friends: [],
   online: {}, // { [userId]: true } — quem esta online agora
+  voiceRosters: {}, // { [channelId]: [ { id, displayName, color, avatar, state } ] }
   activeServerId: null,
   activeChannelId: null,
   voiceChannelId: null,
 
   async boot() {
     const token = getToken()
+    get()._autoRefresh()
     if (!token) return set({ booting: false })
     try {
       const { user } = await api('/auth/me')
@@ -24,6 +28,18 @@ export const useStore = create((set, get) => ({
       setToken(null)
     }
     set({ booting: false })
+  },
+
+  // garante que a tela nunca fica velha: refetch ao voltar pra aba + a cada 45s
+  _autoRefresh() {
+    if (autoRefreshWired) return
+    autoRefreshWired = true
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && get().user) get().refreshAll()
+    })
+    setInterval(() => {
+      if (!document.hidden && get().user) get().refreshAll()
+    }, 45000)
   },
 
   async login(username, password) {
@@ -50,6 +66,7 @@ export const useStore = create((set, get) => ({
       servers: [],
       friends: [],
       online: {},
+      voiceRosters: {},
       activeServerId: null,
       activeChannelId: null,
       voiceChannelId: null,
@@ -79,7 +96,11 @@ export const useStore = create((set, get) => ({
         return { online: next }
       })
     })
+    socket.on('voice:roster', ({ channelId, members }) => {
+      set((s) => ({ voiceRosters: { ...s.voiceRosters, [channelId]: members || [] } }))
+    })
     socket.on('connect', () => get().refreshAll())
+    socket.on('reconnect', () => get().refreshAll())
   },
 
   _seedPresence(lists) {
@@ -93,6 +114,12 @@ export const useStore = create((set, get) => ({
       }
       return { online: next }
     })
+  },
+
+  _seedRosters(servers) {
+    const rosters = {}
+    for (const sv of servers) Object.assign(rosters, sv.voiceRosters || {})
+    set({ voiceRosters: rosters })
   },
 
   async refreshAll() {
@@ -110,12 +137,14 @@ export const useStore = create((set, get) => ({
       }
     })
     get()._seedPresence([friends, ...servers.map((sv) => sv.members)])
+    get()._seedRosters(servers)
   },
 
   async refreshServers() {
     const { servers } = await api('/servers')
     set({ servers })
     get()._seedPresence(servers.map((sv) => sv.members))
+    get()._seedRosters(servers)
   },
 
   async refreshFriends() {

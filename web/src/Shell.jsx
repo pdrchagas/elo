@@ -158,7 +158,7 @@ export default function Shell() {
                   >
                     <span className="hash">🔊</span> {c.name}
                   </button>
-                  {voice.channelId === c.id && <VoiceRoster />}
+                  <VoiceRoster channelId={c.id} />
                 </div>
               ))}
             </div>
@@ -214,43 +214,48 @@ export default function Shell() {
   )
 }
 
-function VoiceRoster() {
+function VoiceRoster({ channelId }) {
   const voice = useVoice()
   const me = useStore((s) => s.user)
-  const others = Object.entries(voice.participants)
+  const roster = useStore((s) => s.voiceRosters[channelId]) || []
+  const inThisCall = voice.channelId === channelId
+
+  if (roster.length === 0 && !inThisCall) return null
+
   return (
     <div className="roster">
-      <RosterItem
-        name={`${me.displayName} (voce)`}
-        speaking={voice.selfSpeaking}
-        muted={voice.muted}
-        sharing={voice.sharing}
-        camera={voice.camera}
-        color={me.color}
-      />
-      {others.map(([sid, p]) => (
-        <RosterItem
-          key={sid}
-          name={p.user?.displayName || '…'}
-          color={p.user?.color}
-          speaking={p.speaking}
-          muted={p.state?.muted}
-          sharing={p.state?.sharing}
-          camera={p.state?.camera}
-        />
-      ))}
+      {roster.map((m) => {
+        const isMe = m.id === me.id
+        // pra mim mesmo, uso o estado ao vivo (mais preciso)
+        const speaking = isMe ? voice.selfSpeaking : voice.participants[m.socketId]?.speaking
+        const muted = isMe && inThisCall ? voice.muted : m.state?.muted
+        return (
+          <RosterItem
+            key={m.socketId || m.id}
+            name={isMe ? `${m.displayName} (voce)` : m.displayName}
+            avatar={m.avatar}
+            color={m.color}
+            speaking={speaking}
+            muted={muted || m.state?.forceMuted}
+            deafened={m.state?.deafened}
+            sharing={m.state?.sharing}
+            camera={m.state?.camera}
+          />
+        )
+      })}
     </div>
   )
 }
 
-function RosterItem({ name, speaking, muted, sharing, camera, color = '#888' }) {
+function RosterItem({ name, avatar, speaking, muted, deafened, sharing, camera, color = '#888' }) {
   return (
     <div className={`roster-item ${speaking ? 'speaking' : ''}`}>
-      <span className="dot" style={{ background: color }} />
+      <Avatar name={name} avatar={avatar} color={color} size={20} noClick />
       <span className="roster-name">{name}</span>
-      {camera && <span title="camera ligada">📹</span>}
-      {sharing && <span title="compartilhando tela">🖥</span>}
-      {muted && <span title="mudo">🔇</span>}
+      {camera && <CameraIcon size={13} />}
+      {sharing && <ScreenIcon size={13} />}
+      {deafened && <HeadphonesOffIcon size={13} />}
+      {muted && <MicOffIcon size={13} />}
     </div>
   )
 }
