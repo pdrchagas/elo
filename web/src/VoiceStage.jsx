@@ -129,16 +129,22 @@ export default function VoiceStage({ server, channel }) {
       )}
 
       {expanded && (
-        <div className="screen-modal" onClick={() => setExpanded(null)}>
-          <ExpandedScreen stream={expanded.stream} muted={expanded.muted} sinkId={voice.spkDeviceId} />
-          <div className="screen-modal-bar">
-            <span>{expanded.label}</span>
-            <button className="btn sm" onClick={() => setExpanded(null)}>fechar ✕</button>
-          </div>
-        </div>
+        <ExpandedScreen
+          stream={expanded.stream}
+          label={expanded.label}
+          muted={expanded.muted}
+          sinkId={voice.spkDeviceId}
+          onClose={() => setExpanded(null)}
+        />
       )}
     </div>
   )
+}
+
+function toggleFullscreen(el) {
+  if (!el) return
+  if (document.fullscreenElement) document.exitFullscreen?.()
+  else el.requestFullscreen?.().catch(() => {})
 }
 
 function ControlBar({ voice }) {
@@ -192,39 +198,76 @@ function ScreenTile({ label, stream, muted, sinkId, onExpand, onHide }) {
     <div className="screen-tile" onClick={onExpand} title="ampliar">
       <video ref={ref} autoPlay playsInline muted={muted} />
       <span className="screen-label"><ScreenIcon size={13} /> {label}</span>
-      {onHide && (
+      <div className="screen-tile-btns">
         <button
-          className="screen-hide"
-          title="parar de assistir"
+          className="screen-tbtn"
+          title="tela cheia"
           onClick={(e) => {
             e.stopPropagation()
-            onHide()
+            toggleFullscreen(ref.current)
           }}
         >
-          ✕
+          ⛶
         </button>
-      )}
+        {onHide && (
+          <button
+            className="screen-tbtn danger"
+            title="parar de assistir"
+            onClick={(e) => {
+              e.stopPropagation()
+              onHide()
+            }}
+          >
+            ✕
+          </button>
+        )}
+      </div>
     </div>
   )
 }
 
-function ExpandedScreen({ stream, muted, sinkId }) {
-  const ref = useRef(null)
+function ExpandedScreen({ stream, label, muted, sinkId, onClose }) {
+  const vid = useRef(null)
+  const box = useRef(null)
+  const [fs, setFs] = useState(false)
+
   useEffect(() => {
-    if (ref.current) ref.current.srcObject = stream || null
+    if (vid.current) vid.current.srcObject = stream || null
   }, [stream])
   useEffect(() => {
-    applySink(ref.current, sinkId)
+    applySink(vid.current, sinkId)
   }, [sinkId, stream])
+  useEffect(() => {
+    const onChange = () => setFs(!!document.fullscreenElement)
+    document.addEventListener('fullscreenchange', onChange)
+    const onKey = (e) => e.key === 'Escape' && !document.fullscreenElement && onClose()
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('fullscreenchange', onChange)
+      window.removeEventListener('keydown', onKey)
+      if (document.fullscreenElement) document.exitFullscreen?.()
+    }
+  }, [])
+
   return (
-    <video
-      ref={ref}
-      className="screen-modal-video"
-      autoPlay
-      playsInline
-      muted={muted}
-      onClick={(e) => e.stopPropagation()}
-    />
+    <div className="screen-modal" ref={box} onClick={() => !fs && onClose()}>
+      <video
+        ref={vid}
+        className="screen-modal-video"
+        autoPlay
+        playsInline
+        muted={muted}
+        onClick={(e) => e.stopPropagation()}
+        onDoubleClick={() => toggleFullscreen(box.current)}
+      />
+      <div className="screen-modal-bar" onClick={(e) => e.stopPropagation()}>
+        <span>{label}</span>
+        <button className="btn sm" onClick={() => toggleFullscreen(box.current)}>
+          {fs ? '↙ sair da tela cheia' : '⛶ tela cheia'}
+        </button>
+        <button className="btn sm" onClick={onClose}>fechar ✕</button>
+      </div>
+    </div>
   )
 }
 
