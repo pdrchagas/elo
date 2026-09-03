@@ -9,7 +9,7 @@ import helmet from 'helmet'
 import { rateLimit } from 'express-rate-limit'
 import { Server } from 'socket.io'
 
-import { verifyToken } from './auth.js'
+import { authUser } from './auth.js'
 import authRoutes from './routes/auth.js'
 import inviteRoutes from './routes/invites.js'
 import friendRoutes from './routes/friends.js'
@@ -97,8 +97,7 @@ const io = new Server(server, { cors: { origin: corsOrigin }, maxHttpBufferSize:
 
 io.use((socket, next) => {
   try {
-    const payload = verifyToken(socket.handshake.auth?.token)
-    socket.user = { id: payload.sub, username: payload.username, displayName: payload.displayName }
+    socket.user = authUser(socket.handshake.auth?.token)
     next()
   } catch {
     next(new Error('nao autenticado'))

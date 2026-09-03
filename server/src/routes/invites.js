@@ -12,9 +12,11 @@ function me(req) {
 // cria um convite (para o app ou para um servidor especifico)
 r.post('/', async (req, res) => {
   const { kind = 'app', serverId = null } = req.body || {}
-  let { maxUses = 0, expiresInHours = 0 } = req.body || {}
-  maxUses = Math.max(0, Math.min(Number(maxUses) || 0, 100))
-  expiresInHours = Math.max(0, Math.min(Number(expiresInHours) || 0, 24 * 30))
+  // defaults: convite expira em 7 dias e vale pra 20 pessoas (evita link vazado virar acesso livre)
+  let maxUses = req.body?.maxUses != null ? Number(req.body.maxUses) : 20
+  let expiresInHours = req.body?.expiresInHours != null ? Number(req.body.expiresInHours) : 24 * 7
+  maxUses = Math.max(0, Math.min(maxUses || 0, 200))
+  expiresInHours = Math.max(0, Math.min(expiresInHours || 0, 24 * 30))
 
   if (kind === 'app') {
     // convite de ACESSO AO APP: so o admin cria

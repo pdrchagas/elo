@@ -23,6 +23,11 @@ export async function api(path, opts = {}) {
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   })
   const data = await res.json().catch(() => ({}))
+  if (res.status === 401 && !path.startsWith('/auth/')) {
+    setToken(null)
+    location.reload()
+    throw new Error('sessao expirada')
+  }
   if (!res.ok) throw new Error(data.error || `erro ${res.status}`)
   return data
 }

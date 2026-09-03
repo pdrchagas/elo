@@ -77,6 +77,7 @@ export default function Auth() {
                 value={form.password}
                 onChange={set('password')}
                 autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                minLength={mode === 'register' ? 8 : undefined}
                 required
               />
               <button
@@ -88,6 +89,7 @@ export default function Auth() {
                 {showPw ? '🙈' : '👁'}
               </button>
             </div>
+            {mode === 'register' && <small style={{ fontWeight: 400 }}>mínimo 8 caracteres</small>}
           </label>
 
           {error && <div className="form-error">{error}</div>}

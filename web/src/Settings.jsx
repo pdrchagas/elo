@@ -7,8 +7,25 @@ import { fileToAvatar } from './media.js'
 
 export default function Settings({ onClose, onLogout, initialTab = 'perfil' }) {
   const voice = useVoice()
-  const { user, setAvatar, setDisplayName } = useStore()
+  const { user, setAvatar, setDisplayName, changePassword, logoutEverywhere } = useStore()
   const [tab, setTab] = useState(initialTab)
+  const [pw, setPw] = useState({ current: '', next: '' })
+  const [pwMsg, setPwMsg] = useState('')
+  const [pwBusy, setPwBusy] = useState(false)
+
+  async function savePassword() {
+    setPwMsg('')
+    setPwBusy(true)
+    try {
+      await changePassword(pw.current, pw.next)
+      setPw({ current: '', next: '' })
+      setPwMsg('senha trocada ✓ (as outras sessões foram deslogadas)')
+    } catch (e) {
+      setPwMsg(e.message)
+    } finally {
+      setPwBusy(false)
+    }
+  }
   const [avatarBusy, setAvatarBusy] = useState(false)
   const [avatarErr, setAvatarErr] = useState('')
   const avatarInput = useRef(null)
@@ -220,10 +237,45 @@ export default function Settings({ onClose, onLogout, initialTab = 'perfil' }) {
             {avatarErr && <p className="form-error">{avatarErr}</p>}
             <p className="hint">a foto é recortada em quadrado e reduzida automaticamente.</p>
 
-            <h3 style={{ marginTop: 24 }}>sessão</h3>
-            <button className="btn danger" onClick={onLogout}>
-              sair da conta
+            <h3 style={{ marginTop: 24 }}>trocar senha</h3>
+            <div className="settings-grid">
+              <label>
+                senha atual
+                <input
+                  type="password"
+                  value={pw.current}
+                  onChange={(e) => setPw((p) => ({ ...p, current: e.target.value }))}
+                  autoComplete="current-password"
+                />
+              </label>
+              <label>
+                senha nova (mín. 8)
+                <input
+                  type="password"
+                  value={pw.next}
+                  onChange={(e) => setPw((p) => ({ ...p, next: e.target.value }))}
+                  autoComplete="new-password"
+                />
+              </label>
+            </div>
+            {pwMsg && <p className="hint">{pwMsg}</p>}
+            <button
+              className="btn primary"
+              disabled={pwBusy || !pw.current || pw.next.length < 8}
+              onClick={savePassword}
+            >
+              {pwBusy ? '…' : 'trocar senha'}
             </button>
+
+            <h3 style={{ marginTop: 24 }}>sessão</h3>
+            <div className="avatar-edit-btns">
+              <button className="btn" onClick={() => logoutEverywhere().then(() => alert('as outras sessões foram deslogadas.'))}>
+                sair de todos os aparelhos
+              </button>
+              <button className="btn danger" onClick={onLogout}>
+                sair da conta
+              </button>
+            </div>
           </div>
         )}
       </div>

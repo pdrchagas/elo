@@ -143,6 +143,18 @@ export const useStore = create((set, get) => ({
     get().refreshAll()
   },
 
+  async logoutEverywhere() {
+    const { token, user } = await api('/auth/logout-all', { method: 'POST' })
+    setToken(token)
+    set({ user })
+  },
+
+  async changePassword(current, next) {
+    const { token, user } = await api('/auth/password', { method: 'POST', body: { current, next } })
+    setToken(token)
+    set({ user })
+  },
+
   isOnline(userId) {
     return !!get().online[userId]
   },

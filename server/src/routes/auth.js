@@ -10,6 +10,20 @@ const r = Router()
 const COLORS = ['#5865F2', '#57F287', '#FEE75C', '#EB459E', '#ED4245', '#3BA55D', '#FAA61A', '#00A8FC']
 const USERNAME_RE = /^[a-z0-9._-]{3,20}$/
 
+const COMMON_PASSWORDS = new Set([
+  '12345678', '123456789', '1234567890', 'password', 'senha123', 'qwerty123',
+  '11111111', '00000000', 'abc12345', 'password1', 'iloveyou', 'admin123',
+  'q1w2e3r4', '1q2w3e4r', 'brasil123', 'flamengo', 'corinthians', '123123123',
+])
+
+function weakPassword(pass, username) {
+  if (pass.length < 8) return 'a senha precisa de pelo menos 8 caracteres'
+  if (COMMON_PASSWORDS.has(pass.toLowerCase())) return 'essa senha e muito comum — escolhe outra'
+  if (pass.toLowerCase() === username.toLowerCase()) return 'a senha nao pode ser igual ao usuario'
+  if (/^(.)\1+$/.test(pass)) return 'a senha nao pode ser so um caractere repetido'
+  return null
+}
+
 function displayNameTaken(name, exceptId) {
   const n = name.trim().toLowerCase()
   return db.data.users.some((u) => u.id !== exceptId && (u.displayName || '').trim().toLowerCase() === n)
@@ -53,7 +67,9 @@ r.post('/register', async (req, res) => {
     return res.status(400).json({ error: 'usuario: 3-20 caracteres, so letras minusculas, numeros, . _ -' })
   }
   const pass = String(password || '')
-  if (pass.length < 4 || pass.length > 200) return res.status(400).json({ error: 'senha: entre 4 e 200 caracteres' })
+  if (pass.length > 200) return res.status(400).json({ error: 'senha muito longa' })
+  const weak = weakPassword(pass, uname)
+  if (weak) return res.status(400).json({ error: weak })
   const display = String(displayName || username).trim().slice(0, 32)
 
   const isFirstUser = db.data.users.length === 0
@@ -74,6 +90,7 @@ r.post('/register', async (req, res) => {
     passwordHash: bcrypt.hashSync(pass, 10),
     color: COLORS[db.data.users.length % COLORS.length],
     isAdmin: isFirstUser,
+    tokenVersion: 0,
     createdAt: Date.now(),
   }
   db.data.users.push(user)
@@ -113,6 +130,32 @@ r.get('/me', authMiddleware, (req, res) => {
   const user = db.data.users.find((u) => u.id === req.user.id)
   if (!user) return res.status(404).json({ error: 'nao encontrado' })
   res.json({ user: publicUser(user) })
+})
+
+// sair de todos os aparelhos: invalida os tokens antigos, devolve um novo pra este
+r.post('/logout-all', authMiddleware, async (req, res) => {
+  const user = db.data.users.find((u) => u.id === req.user.id)
+  if (!user) return res.status(404).json({ error: 'nao encontrado' })
+  user.tokenVersion = (user.tokenVersion || 0) + 1
+  await db.write()
+  res.json({ token: signToken(user), user: publicUser(user) })
+})
+
+// trocar a senha
+r.post('/password', authMiddleware, async (req, res) => {
+  const user = db.data.users.find((u) => u.id === req.user.id)
+  if (!user) return res.status(404).json({ error: 'nao encontrado' })
+  const current = String(req.body?.current || '')
+  const next = String(req.body?.next || '')
+  if (!bcrypt.compareSync(current, user.passwordHash)) {
+    return res.status(403).json({ error: 'senha atual incorreta' })
+  }
+  const weak = weakPassword(next, user.username)
+  if (weak) return res.status(400).json({ error: weak })
+  user.passwordHash = bcrypt.hashSync(next, 10)
+  user.tokenVersion = (user.tokenVersion || 0) + 1 // derruba as outras sessoes
+  await db.write()
+  res.json({ token: signToken(user), user: publicUser(user) })
 })
 
 // editar perfil (nome de exibicao)
