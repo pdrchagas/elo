@@ -4,7 +4,7 @@ import { getSocket } from './socket.js'
 import { useStore } from './store.js'
 import { fileToChatImage } from './media.js'
 import Avatar from './Avatar.jsx'
-import StickerPicker from './StickerPicker.jsx'
+import EmojiPicker from './EmojiPicker.jsx'
 
 export default function Chat({ server, channel }) {
   const [messages, setMessages] = useState([])
@@ -16,6 +16,7 @@ export default function Chat({ server, channel }) {
   const [lightbox, setLightbox] = useState(null)
   const scroller = useRef(null)
   const fileInput = useRef(null)
+  const msgInput = useRef(null)
 
   useEffect(() => {
     let alive = true
@@ -75,9 +76,26 @@ export default function Chat({ server, channel }) {
     setPendingImg(null)
   }
 
-  function sendSticker(s) {
-    getSocket()?.emit('chat:send', { channelId: channel.id, sticker: s })
+  function sendSticker(url) {
+    getSocket()?.emit('chat:send', { channelId: channel.id, sticker: url })
     setShowStickers(false)
+  }
+
+  function insertEmoji(ch) {
+    const el = msgInput.current
+    if (!el) {
+      setText((t) => t + ch)
+      return
+    }
+    const start = el.selectionStart ?? text.length
+    const end = el.selectionEnd ?? text.length
+    const next = text.slice(0, start) + ch + text.slice(end)
+    setText(next)
+    requestAnimationFrame(() => {
+      el.focus()
+      const pos = start + ch.length
+      el.setSelectionRange(pos, pos)
+    })
   }
 
   return (
@@ -129,7 +147,11 @@ export default function Chat({ server, channel }) {
       )}
 
       {showStickers && (
-        <StickerPicker onPick={(v) => sendSticker(v)} onClose={() => setShowStickers(false)} />
+        <EmojiPicker
+          onEmoji={insertEmoji}
+          onSticker={sendSticker}
+          onClose={() => setShowStickers(false)}
+        />
       )}
 
       <form className="composer" onSubmit={send} onPaste={onPaste}>
@@ -145,7 +167,7 @@ export default function Chat({ server, channel }) {
         <button
           type="button"
           className={`composer-btn ${showStickers ? 'on' : ''}`}
-          title="figurinhas"
+          title="emoji e figurinhas"
           onClick={() => setShowStickers((v) => !v)}
         >
           😀
@@ -161,6 +183,7 @@ export default function Chat({ server, channel }) {
           }}
         />
         <input
+          ref={msgInput}
           placeholder={`mensagem em #${channel.name}`}
           value={text}
           onChange={(e) => setText(e.target.value)}

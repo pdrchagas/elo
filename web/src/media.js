@@ -1,11 +1,3 @@
-// Figurinhas: emojis grandes. Simples, sem armazenamento, sem questao de licenca.
-export const STICKERS = [
-  '😂', '💀', '🔥', '👍', '👎', '❤️', '😭', '🥶', '🤡', '👀',
-  '🎉', '😎', '🙏', '💯', '🤝', '🥳', '😱', '🫡', '🤔', '😴',
-  '🤯', '🫠', '👑', '🐐', '💅', '🗿', '✅', '❌', '⚠️', '🍺',
-  '🎮', '🏆', '💸', '📸', '🤣', '😤',
-]
-
 // Redimensiona uma imagem pra caber no chat (JPEG, no maximo ~500KB).
 export async function fileToChatImage(file, { maxDim = 1024 } = {}) {
   if (!file || !file.type.startsWith('image/')) throw new Error('nao e imagem')
