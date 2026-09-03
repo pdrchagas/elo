@@ -1,100 +1,175 @@
 # elo
 
-Plataforma de voz + compartilhamento de tela para você e seus amigos — estilo Discord, só que
-sua e por convite.
+Plataforma de voz, vídeo e chat pra você e seus amigos — estilo Discord, mas privada e só por
+convite. Chamada em grupo, compartilhamento de tela, webcam, canais de texto com imagens e
+figurinhas, cargos, moderação, tudo em tempo real.
 
-- **Login só com usuário + senha** (sem e-mail).
-- **Acesso ao app só por link de convite** (o primeiro cadastro vira admin e gera os convites).
-- **Lista de amigos** e **servidores** com canais de texto e de voz.
-- **Call em grupo (até ~8 pessoas)** com **compartilhamento de tela em tempo real**.
-- Áudio/vídeo vão **direto entre os navegadores** (WebRTC P2P em malha). O servidor só faz
-  autenticação, dados e a "sinalização".
+**No ar:** https://elo-xxxx.onrender.com
+
+---
+
+## O que dá pra fazer
+
+### Voz e vídeo
+- **Call em grupo** (até ~8 pessoas) — áudio P2P (WebRTC em malha), o servidor só faz a sinalização
+- **Compartilhar tela** — vários ao mesmo tempo; clica numa tela pra ver em tela cheia
+- **Webcam** — liga/desliga na call
+- Escolha de **microfone** e **saída de áudio** (fone), com teste de microfone
+- Indicador de quem está falando, mudo, surdo
+
+### Servidores e canais
+- Criar **servidores** (só o admin) com canais de **texto** e de **voz**
+- **Lista de amigos** (adicionar por @usuário, aceitar pedidos)
+- **Acesso ao app só por link de convite** (o 1º cadastro vira admin e gera os convites; convites
+  expiram em 7 dias e valem pra 20 pessoas por padrão)
+- Convite pra servidor específico
+
+### Chat
+- Texto em tempo real
+- **Imagens** (cola ou botão; redimensionadas no navegador antes de enviar)
+- **Figurinhas** — emojis grandes + figurinhas de imagem que qualquer um pode subir pro servidor
+- Card de perfil ao clicar no avatar de alguém (nome, servidores em comum, adicionar amigo)
+
+### Cargos e moderação
+- **Cargos por servidor** com nome livre e 3 permissões: **expulsar**, **silenciar na call**,
+  **mover de canal de voz**
+- Na sala de voz, quem tem permissão vê um menu por pessoa: silenciar no servidor
+  (a pessoa não se desmuta) ou mover pra outro canal
+- **Expulsar** membro (dono, admin, ou cargo) — pelo painel do servidor ou pelo card de perfil
+
+### Admin
+- Painel de **usuários** (engrenagem → aba usuarios) — quem cadastrou/logou, remover conta,
+  promover admin, **baixar backup completo**
+- O admin do app enxerga e gerencia **todos** os servidores
+
+### Conta
+- Editar perfil: **nome de exibição** (único) e **foto** (recorte quadrado automático)
+- **Trocar senha** (mínimo 8, bloqueia senhas comuns)
+- **Sair de todos os aparelhos** (invalida tokens antigos na hora)
+
+### Extra
+- Layout **responsivo pra celular** (gaveta de canais e de membros)
+- Tema escuro, scrollbars discretas
+
+---
 
 ## Stack
 
-| Parte    | Tecnologia                                        |
-| -------- | ------------------------------------------------- |
-| Frontend | React + Vite, zustand, socket.io-client, WebRTC   |
-| Backend  | Node + Express + Socket.IO, lowdb (arquivo JSON)  |
-| Auth     | JWT + bcrypt                                      |
+| Parte     | Tecnologia                                                        |
+| --------- | ---------------------------------------------------------------- |
+| Frontend  | React + Vite, zustand, WebRTC nativo, socket.io-client          |
+| Backend   | Node + Express 5 + Socket.IO                                     |
+| Banco     | MongoDB (via adapter do lowdb: estado num doc + coleção `messages`) |
+| Auth      | JWT (com `tokenVersion`) + bcrypt                               |
+| Segurança | helmet + CSP, express-rate-limit                                |
+
+O áudio/vídeo vão **direto entre os navegadores**. O backend cuida de login, dados, sinalização
+WebRTC e chat.
+
+---
 
 ## Rodando localmente
 
-Pré-requisito: Node 18+.
+Pré-requisito: Node 20+.
 
 ```bash
-# 1. instalar tudo
+git clone https://github.com/pdrchagas/elo.git
+cd elo
 npm install
-npm run install:all
+npm run install:all          # instala server/ e web/
 
-# 2. configurar o backend
-cp server/.env.example server/.env      # edite JWT_SECRET
-cp web/.env.example web/.env            # opcional
+cp server/.env.example server/.env    # edite JWT_SECRET
+# sem MONGODB_URI o backend usa um arquivo local (server/data/db.json) — ótimo pra dev
 
-# 3. subir backend + frontend juntos
-npm run dev
+npm run dev                   # sobe backend (:4000) + frontend (:5173)
 ```
 
 - Frontend: http://localhost:5173
 - Backend: http://localhost:4000
+- O **primeiro cadastro** não precisa de convite e vira **admin**.
+- Testar sozinho: uma janela normal + uma anônima, dois usuários, mesmo canal de voz (use fone).
 
-O **primeiro** cadastro não precisa de convite e vira **admin**. Depois disso, novos cadastros só
-com um link `?invite=CÓDIGO` gerado na engrenagem de um servidor ("convite para o app").
+---
 
-## Fluxo de uso
+## Variáveis de ambiente (backend)
 
-1. Você cria a conta (admin), cria um **servidor** e escolhe amigos (ou gera um link de convite do app).
-2. Manda o link `http://SEU_HOST/?invite=CÓDIGO` para os amigos — eles se cadastram só com nome e senha.
-3. Todo mundo entra num **canal de voz**, clica em **compartilhar tela** e pronto.
+| Variável        | Pra quê                                                            |
+| --------------- | ---------------------------------------------------------------- |
+| `JWT_SECRET`    | **obrigatório em produção** — segredo dos tokens (32+ caracteres) |
+| `CLIENT_ORIGIN` | origens permitidas (`*` ou lista separada por vírgula)          |
+| `MONGODB_URI`   | conexão do MongoDB Atlas (sem ela, usa arquivo local)          |
+| `MONGODB_DB`    | nome do banco (padrão `elo`)                                    |
+| `PORT`          | porta (padrão 4000)                                             |
 
-## Testando na mesma máquina
+Frontend: `web/.env.production` deixa `VITE_API_URL` vazio (mesma origem). TURN opcional em
+`VITE_TURN_*` (só necessário se algum amigo estiver atrás de NAT muito restritivo).
 
-Abra duas janelas (uma normal e uma anônima), cadastre dois usuários e entre no mesmo canal de voz.
-Use fones para não dar microfonia.
-
-## Rede / NAT
-
-A conexão é P2P e usa STUN público do Google. Na maioria das redes domésticas funciona direto.
-Se algum amigo estiver atrás de NAT restritivo (CGNAT, redes corporativas), a conexão pode falhar —
-nesse caso configure um servidor **TURN** (ex.: [coturn](https://github.com/coturn/coturn) ou um
-serviço como Metered/Twilio) nas variáveis `VITE_TURN_*` em `web/.env`.
+---
 
 ## Deploy
 
-Passo a passo completo (Render + MongoDB Atlas, grátis) em **[TESTAR-ONLINE.md](TESTAR-ONLINE.md)**.
+**É um serviço só:** o Express serve `web/dist` (o site compilado) + a API + o WebSocket na
+mesma origem. Hoje está no **Render** (free) + **MongoDB Atlas** (M0).
 
-Resumo:
-- É **um serviço só**: o Express serve `web/dist` na mesma origem (se a pasta existir).
-- **Banco**: sem `MONGODB_URI` usa o arquivo `server/data/db.json`; com `MONGODB_URI` usa MongoDB
-  (recomendado em produção — o disco do Render free é efêmero).
-- Env do backend: `JWT_SECRET`, `CLIENT_ORIGIN`, `MONGODB_URI`, `MONGODB_DB`.
-- O build de produção (`web/.env.production`) deixa `VITE_API_URL` vazio → mesma origem.
-- Use **HTTPS** em produção: `getUserMedia`/`getDisplayMedia` só funcionam em contexto seguro
-  (localhost é exceção).
+- Passo a passo do zero: **[TESTAR-ONLINE.md](TESTAR-ONLINE.md)**
+- Backup, restauração, deploy manual e rollback: **[BACKUP-E-DEPLOY.md](BACKUP-E-DEPLOY.md)**
+
+O `render.yaml` é um blueprint — o Render lê e monta o serviço; você só cola o `MONGODB_URI`.
+
+---
+
+## Segurança (resumo)
+
+- Senha em bcrypt, nunca enviada ao cliente. Mínimo 8, bloqueio de senhas comuns.
+- Toda rota (menos `/api/auth/*` e `/api/health`) exige token válido; `tokenVersion` permite
+  revogar sessões.
+- helmet + CSP (script só `self`, imagens só `data:`), rate limit global + apertado no login.
+- CORS, `trust proxy`, validação no backend, sem `dangerouslySetInnerHTML`.
+- Convite de app só o admin cria; convites expiram e têm limite de usos.
+- Correção de IDOR (canal tem que pertencer ao servidor da URL).
+- `npm audit` limpo.
+- Usuário do Mongo com `readWrite` só no banco `elo`.
+- Backup diário (GitHub Action) + backup sob demanda + trava anti-corrupção (o servidor não sobe
+  com estado corrompido e nunca sobrescreve o banco com estado inválido).
+
+---
 
 ## Estrutura
 
 ```
 elo/
-├── server/            # API + sinalização
+├── server/                  # API + sinalização + chat
 │   └── src/
-│       ├── index.js
-│       ├── db.js           # lowdb
-│       ├── auth.js         # JWT
-│       ├── signaling.js    # WebRTC signaling + chat
-│       └── routes/
-└── web/               # React app
-    └── src/
-        ├── webrtc.js       # malha P2P (perfect negotiation)
-        ├── voice.js        # store da call
-        ├── store.js        # store geral
-        └── *.jsx
+│       ├── index.js          # express + socket.io + helmet + rate limit
+│       ├── db.js             # lowdb com adapter de MongoDB + trava anti-corrupção
+│       ├── auth.js           # JWT + tokenVersion
+│       ├── perms.js          # isAppAdmin / isServerOwner / memberCan
+│       ├── realtime.js       # presença (online) + eventos "sync"
+│       ├── messages.js       # coleção de mensagens (Mongo) com TTL
+│       ├── projection.js     # espelho legível dos usuários em elo.users
+│       ├── signaling.js      # WebRTC signaling + chat + moderação de voz
+│       ├── routes/           # auth, invites, friends, servers, admin, stickers
+│       └── scripts/restore.mjs
+├── web/                     # app React
+│   └── src/
+│       ├── webrtc.js         # malha P2P (perfect negotiation)
+│       ├── voice.js          # store da call
+│       ├── store.js          # store geral (auth, servidores, amigos, presença)
+│       ├── Shell.jsx         # layout (desktop + mobile)
+│       ├── VoiceStage.jsx / Chat.jsx / Settings.jsx / ...
+│       └── ...
+├── render.yaml
+├── .github/workflows/       # keep-alive + backup-mongo
+├── TESTAR-ONLINE.md
+└── BACKUP-E-DEPLOY.md
 ```
 
-## Limitações conhecidas (é um MVP)
+---
 
-- Malha P2P: cada pessoa envia sua mídia para todas as outras. Com 8 pessoas **todas**
-  compartilhando tela ao mesmo tempo o upload fica pesado. Para grupos maiores o caminho é um
-  SFU (LiveKit/mediasoup).
-- Sem permissões/moderação finas, sem reconexão automática de sessão, sem notificações push.
-- O banco é um arquivo JSON (`server/data/db.json`) — ótimo para uso entre amigos, não para escala.
+## Limitações conhecidas
+
+- Malha P2P: cada pessoa manda a mídia pra todas as outras. Com 8 pessoas **todas** compartilhando
+  tela ao mesmo tempo, o upload pesa. Pra grupos maiores o caminho é um SFU (LiveKit/mediasoup).
+- Render free dorme após 15 min sem uso (1ª visita ~40s pra acordar).
+- Sem TURN por padrão — se algum amigo estiver atrás de CGNAT/rede corporativa, a call pode falhar.
+- Compartilhar a tela do celular depende do navegador (Android/Chrome geralmente deixa; iOS não).
