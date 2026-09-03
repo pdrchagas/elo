@@ -18,3 +18,7 @@ services:
         sync: false
       - key: MONGODB_DB
         value: elo
+      # chave de acesso: sem ela, quem abrir a URL nao ve nada.
+      # defina no painel do Render um valor so seu (ex: uma frase aleatoria).
+      - key: GATE_KEY
+        sync: false

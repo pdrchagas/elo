@@ -4,7 +4,8 @@ Plataforma de voz, vídeo e chat pra você e seus amigos — estilo Discord, mas
 convite. Chamada em grupo, compartilhamento de tela, webcam, canais de texto com imagens e
 figurinhas, cargos, moderação, tudo em tempo real.
 
-**No ar:** https://elo-xxxx.onrender.com
+> **Privado.** O app roda num host próprio e tem uma **trava de acesso** (`GATE_KEY`): quem não
+> abrir pelo link com a chave vê uma página vazia. A URL não é divulgada aqui de propósito.
 
 ---
 
@@ -84,9 +85,11 @@ cp server/.env.example server/.env    # edite JWT_SECRET
 npm run dev                   # sobe backend (:4000) + frontend (:5173)
 ```
 
-- Frontend: http://localhost:5173
-- Backend: http://localhost:4000
+Depois que aparecer `VITE ... ready`, abra no navegador: `http://localhost:5173`
+(não é um link clicável — só funciona com o `npm run dev` rodando). O backend fica em `:4000`.
+
 - O **primeiro cadastro** não precisa de convite e vira **admin**.
+- Em dev não tem `GATE_KEY`, então o app abre direto.
 - Testar sozinho: uma janela normal + uma anônima, dois usuários, mesmo canal de voz (use fone).
 
 ---
@@ -96,6 +99,7 @@ npm run dev                   # sobe backend (:4000) + frontend (:5173)
 | Variável        | Pra quê                                                            |
 | --------------- | ---------------------------------------------------------------- |
 | `JWT_SECRET`    | **obrigatório em produção** — segredo dos tokens (32+ caracteres) |
+| `GATE_KEY`      | trava de acesso — sem ela o app abre pra qualquer um. Os links de convite já incluem o `?k=` |
 | `CLIENT_ORIGIN` | origens permitidas (`*` ou lista separada por vírgula)          |
 | `MONGODB_URI`   | conexão do MongoDB Atlas (sem ela, usa arquivo local)          |
 | `MONGODB_DB`    | nome do banco (padrão `elo`)                                    |
@@ -125,6 +129,8 @@ O `render.yaml` é um blueprint — o Render lê e monta o serviço; você só c
   revogar sessões.
 - helmet + CSP (script só `self`, imagens só `data:`), rate limit global + apertado no login.
 - CORS, `trust proxy`, validação no backend, sem `dangerouslySetInnerHTML`.
+- **Trava de acesso** (`GATE_KEY`): sem a chave no link, o app nem carrega — não gasta recurso
+  com visitante aleatório. Os links de convite já embutem a chave.
 - Convite de app só o admin cria; convites expiram e têm limite de usos.
 - Correção de IDOR (canal tem que pertencer ao servidor da URL).
 - `npm audit` limpo.

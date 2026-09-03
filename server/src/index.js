@@ -50,6 +50,51 @@ app.use(
 app.use(cors({ origin: corsOrigin }))
 app.use(express.json({ limit: '1mb' }))
 
+// ---- Trava de acesso (opcional) ----
+// Se GATE_KEY estiver definida, o app so carrega pra quem chegou pelo link
+// https://SEU_HOST/?k=GATE_KEY (que grava um cookie). Sem o cookie: pagina vazia,
+// nenhuma chamada de API. Nao substitui o login — so evita gente aleatoria
+// carregando o site e gastando recurso.
+const GATE_KEY = process.env.GATE_KEY || ''
+if (GATE_KEY) {
+  app.use((req, res, next) => {
+    if (req.path === '/api/health') return next() // health check do Render / keepalive
+
+    const cookie = (req.headers.cookie || '')
+      .split(';')
+      .map((c) => c.trim().split('='))
+      .find(([k]) => k === 'elo_gate')
+    const hasCookie = cookie && cookie[1] === GATE_KEY
+
+    if (req.query.k === GATE_KEY) {
+      res.cookie('elo_gate', GATE_KEY, {
+        maxAge: 365 * 24 * 3600 * 1000,
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: true,
+      })
+      // tira o ?k= da URL, preserva o resto (ex: ?invite=CODE)
+      const rest = { ...req.query }
+      delete rest.k
+      const qs = new URLSearchParams(rest).toString()
+      return res.redirect(302, req.path + (qs ? `?${qs}` : ''))
+    }
+
+    if (hasCookie) return next()
+
+    if (req.method === 'GET' && !req.path.startsWith('/api')) {
+      return res
+        .status(404)
+        .type('html')
+        .send(
+          '<!doctype html><meta charset="utf-8"><title>404</title>' +
+            '<body style="margin:0;height:100vh;display:grid;place-content:center;background:#1e1f22;color:#5b5d63;font:15px system-ui">nada aqui</body>',
+        )
+    }
+    return res.status(404).json({ error: 'not found' })
+  })
+}
+
 // limite global de requisicoes por IP
 app.use(
   '/api',
@@ -96,6 +141,12 @@ const server = http.createServer(app)
 const io = new Server(server, { cors: { origin: corsOrigin }, maxHttpBufferSize: 1.2e6 })
 
 io.use((socket, next) => {
+  if (GATE_KEY) {
+    const ok = (socket.handshake.headers.cookie || '')
+      .split(';')
+      .some((c) => c.trim() === `elo_gate=${GATE_KEY}`)
+    if (!ok) return next(new Error('sem acesso'))
+  }
   try {
     socket.user = authUser(socket.handshake.auth?.token)
     next()

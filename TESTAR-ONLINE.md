@@ -41,14 +41,25 @@ gh repo create elo --private --source=. --push
 1. https://render.com → entre com o GitHub.
 2. **New +** → **Blueprint** → escolha o repositório `elo`.
    O Render lê o `render.yaml` e já cria o serviço com quase tudo pronto.
-3. Ele vai pedir o valor de **`MONGODB_URI`** → cole a connection string da Parte 1.
+3. Ele vai pedir dois valores:
+   - **`MONGODB_URI`** → cole a connection string da Parte 1.
+   - **`GATE_KEY`** → uma frase secreta só sua (ex: `SUA_GATE_KEY`). É a trava de
+     acesso: sem ela no link, quem abrir a URL vê uma página vazia.
    (`JWT_SECRET` é gerado sozinho; `CLIENT_ORIGIN=*` e `MONGODB_DB=elo` já vêm do yaml.)
 4. **Apply** / **Create**. Em ~2-3 min sai no ar em `https://elo-xxxx.onrender.com`.
+
+### Primeiro acesso (com a trava ligada)
+- **Seu link de entrada:** `https://elo-xxxx.onrender.com/?k=SUA_GATE_KEY`
+  Abre uma vez com o `?k=` — ele grava um cookie de 1 ano e você não precisa mais dele.
+- Cria sua conta (vira admin), gera o "convite para o app" na engrenagem de um servidor:
+  o link que aparece **já vem com o `?k=`**, é só mandar pros amigos.
+- Quem abrir `https://elo-xxxx.onrender.com` sem o `?k=` (nem cookie) não vê nada.
 
 Se preferir criar manualmente (sem blueprint):
 - Runtime **Node** · Build `npm install && npm run install:all && npm run build` · Start `npm start`
 - Health check path: `/api/health`
-- Env: `MONGODB_URI`, `MONGODB_DB=elo`, `JWT_SECRET` (aleatório), `CLIENT_ORIGIN=*`, `NODE_VERSION=22`
+- Env: `MONGODB_URI`, `MONGODB_DB=elo`, `JWT_SECRET` (aleatório), `CLIENT_ORIGIN=*`,
+  `GATE_KEY` (frase secreta), `NODE_VERSION=22`
 
 ---
 

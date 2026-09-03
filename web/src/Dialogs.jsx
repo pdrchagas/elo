@@ -161,7 +161,7 @@ export function InviteDialog({ server, onClose }) {
     setBusy(true)
     try {
       const { invite } = await api('/invites', { method: 'POST', body: { kind: 'app' } })
-      setAppLink(`${window.location.origin}${window.location.pathname}?invite=${invite.code}`)
+      setAppLink(invite.url || `${window.location.origin}/?invite=${invite.code}`)
     } finally {
       setBusy(false)
     }
@@ -174,7 +174,7 @@ export function InviteDialog({ server, onClose }) {
         method: 'POST',
         body: { kind: 'server', serverId: server.id },
       })
-      setServerLink(`${window.location.origin}${window.location.pathname}?join=${invite.code}`)
+      setServerLink(invite.url || `${window.location.origin}/?join=${invite.code}`)
     } finally {
       setBusy(false)
     }

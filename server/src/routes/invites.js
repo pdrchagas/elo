@@ -9,6 +9,15 @@ function me(req) {
   return db.data.users.find((u) => u.id === req.user.id)
 }
 
+// monta o link completo do convite (com a chave de acesso, se houver)
+function inviteUrl(req, rec) {
+  const base = `${req.protocol}://${req.get('host')}/`
+  const q = new URLSearchParams()
+  if (process.env.GATE_KEY) q.set('k', process.env.GATE_KEY)
+  q.set(rec.kind === 'server' ? 'join' : 'invite', rec.code)
+  return base + '?' + q.toString()
+}
+
 // cria um convite (para o app ou para um servidor especifico)
 r.post('/', async (req, res) => {
   const { kind = 'app', serverId = null } = req.body || {}
@@ -38,12 +47,15 @@ r.post('/', async (req, res) => {
   }
   db.data.invites.push(rec)
   await db.write()
-  res.json({ invite: rec })
+  res.json({ invite: { ...rec, url: inviteUrl(req, rec) } })
 })
 
 // lista os convites que eu criei
 r.get('/', (req, res) => {
-  res.json({ invites: db.data.invites.filter((i) => i.createdBy === req.user.id) })
+  const invites = db.data.invites
+    .filter((i) => i.createdBy === req.user.id)
+    .map((i) => ({ ...i, url: inviteUrl(req, i) }))
+  res.json({ invites })
 })
 
 r.delete('/:code', async (req, res) => {
