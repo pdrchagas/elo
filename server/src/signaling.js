@@ -155,6 +155,9 @@ export function registerSignaling(io) {
         const dest = db.data.channels.find((c) => c.id === toChannelId && c.type === 'voice')
         if (!dest || dest.serverId !== server.id) return
         target.emit('voice:move', { channelId: toChannelId, by: user.displayName })
+      } else if (action === 'disconnect') {
+        if (!memberCan(server, user.id, 'canDisconnect')) return
+        target.emit('voice:removed', { by: user.displayName })
       }
     })
 

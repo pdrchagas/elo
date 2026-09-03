@@ -3,10 +3,7 @@ import { getSocket } from './socket.js'
 import { MeshManager } from './webrtc.js'
 import { createSpeakingDetector } from './audio.js'
 import { playJoin, playLeave, playSelfJoin } from './sounds.js'
-import {
-  ensureMixer, teardownMixer, attach as mixAttach, detach as mixDetach,
-  updateUserId as mixUpdateUser, setVolume as mixSetVolume, getUserVolume,
-} from './mixer.js'
+import { getUserVolume, saveUserVolume } from './volumes.js'
 
 let mesh = null
 let cleanupMeta = null
@@ -31,8 +28,9 @@ export const useVoice = create((set, get) => ({
   notice: '',
   micDeviceId: localStorage.getItem('elo_mic') || '',
   spkDeviceId: localStorage.getItem('elo_spk') || '',
-  noiseSuppress: localStorage.getItem('elo_ns') !== '0', // padrao ligado
+  noiseSuppress: localStorage.getItem('elo_ns') === '1', // padrao DESLIGADO (experimental)
   echoCancel: localStorage.getItem('elo_ec') !== '0', // padrao ligado
+  micGain: Math.max(1, Math.min(2.5, Number(localStorage.getItem('elo_micgain')) || 1)),
   sounds: localStorage.getItem('elo_sounds') !== '0', // padrao ligado
   hiddenScreens: [], // ids de telas que voce parou de assistir
   sharing: false,
@@ -41,8 +39,7 @@ export const useVoice = create((set, get) => ({
   localStream: null,
   screenStream: null,
   cameraStream: null,
-  mixStream: null, // audio somado de todo mundo (tocado pelo Shell)
-  volumes: {}, // { [userId]: multiplicador 0..2 } — pra UI
+  volumes: {}, // { [userId]: multiplicador 0..2 }
   participants: {}, // socketId -> { user, state, micStream, screenStream, cameraStream, speaking }
 
   async connect(channelId) {
@@ -52,7 +49,7 @@ export const useVoice = create((set, get) => ({
     const socket = getSocket()
     if (!socket) return set({ error: 'sem conexao com o servidor' })
 
-    set({ connecting: true, channelId, error: null, participants: {}, mixStream: ensureMixer() })
+    set({ connecting: true, channelId, error: null, participants: {} })
     rawStreams.clear()
     trackKinds.clear()
     micStreamId.clear()
@@ -77,7 +74,7 @@ export const useVoice = create((set, get) => ({
 
       patch(sid, { micStream, screenStream, cameraStream })
 
-      // (re)liga o detector de fala + o mixer se o stream de microfone mudou
+      // (re)liga o detector de fala se o stream de microfone mudou
       if (micStream && micStreamId.get(sid) !== micStream.id) {
         speaking.get(sid)?.()
         micStreamId.set(sid, micStream.id)
@@ -88,10 +85,7 @@ export const useVoice = create((set, get) => ({
           }),
         )
         const uid = get().participants[sid]?.user?.id
-        mixAttach(sid, micStream, uid)
-        if (uid) {
-          set((s) => ({ volumes: { ...s.volumes, [uid]: s.volumes[uid] ?? getUserVolume(uid) } }))
-        }
+        if (uid) set((s) => ({ volumes: { ...s.volumes, [uid]: s.volumes[uid] ?? getUserVolume(uid) } }))
       }
     }
 
@@ -110,7 +104,6 @@ export const useVoice = create((set, get) => ({
       onPeerGone: (sid) => {
         speaking.get(sid)?.()
         speaking.delete(sid)
-        mixDetach(sid)
         rawStreams.delete(sid)
         trackKinds.delete(sid)
         micStreamId.delete(sid)
@@ -134,7 +127,6 @@ export const useVoice = create((set, get) => ({
 
     const linkVolume = (socketId, user) => {
       if (!user?.id) return
-      mixUpdateUser(socketId, user.id)
       set((s) => ({ volumes: { ...s.volumes, [user.id]: s.volumes[user.id] ?? getUserVolume(user.id) } }))
     }
     const onPeerJoined = ({ socketId, user, state }) => {
@@ -170,6 +162,11 @@ export const useVoice = create((set, get) => ({
       get().connect(to)
       setTimeout(() => set({ notice: '' }), 4000)
     }
+    const onRemoved = ({ by }) => {
+      set({ notice: `${by} te removeu da call` })
+      get().disconnect()
+      setTimeout(() => set({ notice: '' }), 5000)
+    }
 
     socket.on('voice:peer-joined', onPeerJoined)
     socket.on('voice:peers', onPeers)
@@ -177,6 +174,7 @@ export const useVoice = create((set, get) => ({
     socket.on('voice:error', onError)
     socket.on('voice:force-mute', onForceMute)
     socket.on('voice:move', onMove)
+    socket.on('voice:removed', onRemoved)
     cleanupMeta = () => {
       socket.off('voice:peer-joined', onPeerJoined)
       socket.off('voice:peers', onPeers)
@@ -184,6 +182,7 @@ export const useVoice = create((set, get) => ({
       socket.off('voice:error', onError)
       socket.off('voice:force-mute', onForceMute)
       socket.off('voice:move', onMove)
+      socket.off('voice:removed', onRemoved)
     }
 
     try {
@@ -191,6 +190,7 @@ export const useVoice = create((set, get) => ({
         deviceId: get().micDeviceId || undefined,
         noiseSuppression: get().noiseSuppress,
         echoCancellation: get().echoCancel,
+        micGain: get().micGain,
       })
       // aplica preferencia de mudo/surdo
       mesh.setMuted(get().muted || get().deafened)
@@ -213,7 +213,6 @@ export const useVoice = create((set, get) => ({
     cleanupMeta?.()
     cleanupMeta = null
     clearSpeaking()
-    teardownMixer()
     rawStreams.clear()
     trackKinds.clear()
     micStreamId.clear()
@@ -227,7 +226,6 @@ export const useVoice = create((set, get) => ({
       localStream: null,
       screenStream: null,
       cameraStream: null,
-      mixStream: null,
       sharing: false,
       camera: false,
       selfSpeaking: false,
@@ -237,7 +235,7 @@ export const useVoice = create((set, get) => ({
 
   setUserVolume(userId, v) {
     const val = Math.max(0, Math.min(2, v))
-    mixSetVolume(userId, val)
+    saveUserVolume(userId, val)
     set((s) => ({ volumes: { ...s.volumes, [userId]: val } }))
   },
 
@@ -283,6 +281,16 @@ export const useVoice = create((set, get) => ({
     localStorage.setItem('elo_ec', echoCancel ? '1' : '0')
     set({ echoCancel })
     await mesh?.setMicDevice({ echoCancellation: echoCancel })
+  },
+
+  _micGainTimer: null,
+  async setMicGain(g) {
+    const micGain = Math.max(1, Math.min(2.5, g))
+    localStorage.setItem('elo_micgain', String(micGain))
+    set({ micGain })
+    clearTimeout(get()._micGainTimer)
+    // debounce: so reconstroi o mic depois que para de arrastar o slider
+    get()._micGainTimer = setTimeout(() => mesh?.setMicDevice({ micGain }), 350)
   },
 
   toggleSounds() {
@@ -336,5 +344,8 @@ export const useVoice = create((set, get) => ({
   },
   modMove(targetSocketId, toChannelId) {
     getSocket()?.emit('voice:mod', { action: 'move', targetSocketId, toChannelId })
+  },
+  modDisconnect(targetSocketId) {
+    getSocket()?.emit('voice:mod', { action: 'disconnect', targetSocketId })
   },
 }))

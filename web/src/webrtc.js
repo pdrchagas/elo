@@ -45,38 +45,63 @@ export class MeshManager {
     return this.outbound
   }
 
-  // (re)constroi micRaw + denoiser + micTrack a partir de this._micOpts
+  // (re)constroi micRaw + micTrack a partir de this._micOpts.
+  // caminho padrao: track cru do getUserMedia (confiavel, sem Web Audio).
+  // so entra no Web Audio se pedirem RNNoise ou ganho > 1.
   async _buildMic() {
     const o = this._micOpts || {}
-    const useRnnoise = o.noiseSuppression !== false
+    const useRnnoise = o.noiseSuppression === true // padrao: NAO
+    const gain = Number(o.micGain) > 0 ? Number(o.micGain) : 1
+    const needAudioGraph = useRnnoise || gain > 1.02
+
     this.micRaw = await navigator.mediaDevices.getUserMedia({
       audio: {
         deviceId: o.deviceId ? { exact: o.deviceId } : undefined,
         echoCancellation: o.echoCancellation !== false,
-        // com RNNoise, desliga o processamento do navegador (RNNoise faz melhor)
-        noiseSuppression: !useRnnoise,
-        autoGainControl: !useRnnoise,
+        noiseSuppression: !useRnnoise, // com RNNoise, deixa o RNNoise cuidar
+        autoGainControl: true,
       },
       video: false,
     })
+
     let track = this.micRaw.getAudioTracks()[0]
-    this.denoiser = null
-    if (useRnnoise) {
+    this._proc = null
+
+    if (needAudioGraph) {
       try {
-        const { createDenoiser } = await import('./noise.js')
-        this.denoiser = await createDenoiser(this.micRaw)
-        track = this.denoiser.track
+        const Ctx = window.AudioContext || window.webkitAudioContext
+        const ctx = new Ctx({ sampleRate: 48000 })
+        let node = ctx.createMediaStreamSource(this.micRaw)
+        let denoiser = null
+        if (useRnnoise) {
+          const { createDenoiserNode } = await import('./noise.js')
+          denoiser = await createDenoiserNode(ctx)
+          node.connect(denoiser)
+          node = denoiser
+        }
+        const gainNode = ctx.createGain()
+        gainNode.gain.value = gain
+        const dest = ctx.createMediaStreamDestination()
+        node.connect(gainNode).connect(dest)
+        if (ctx.state === 'suspended') await ctx.resume().catch(() => {})
+        track = dest.stream.getAudioTracks()[0]
+        this._proc = { ctx, denoiser }
       } catch (e) {
-        console.warn('RNNoise indisponivel — usando so o navegador', e)
+        console.warn('processamento de audio indisponivel — usando o mic direto', e)
+        track = this.micRaw.getAudioTracks()[0]
       }
     }
+
     this.micTrack = track
     for (const t of this.micRaw.getAudioTracks()) t.enabled = !this._muted
   }
 
   _teardownMic() {
-    try { this.denoiser?.dispose() } catch {}
-    this.denoiser = null
+    try {
+      this._proc?.denoiser?.destroy?.()
+      this._proc?.ctx?.close?.()
+    } catch {}
+    this._proc = null
     for (const t of this.micRaw?.getTracks() || []) t.stop()
     this.micRaw = null
   }
@@ -86,9 +111,8 @@ export class MeshManager {
     this._micOpts = { ...(this._micOpts || {}), ...opts }
     const oldTrack = this.micTrack
     const oldRaw = this.micRaw
-    const oldDenoiser = this.denoiser
-
-    await this._buildMic() // define novos micRaw / denoiser / micTrack
+    const oldProc = this._proc
+    await this._buildMic() // define novos micRaw / _proc / micTrack
 
     for (const { pc } of this.peers.values()) {
       for (const sender of pc.getSenders()) {
@@ -100,7 +124,10 @@ export class MeshManager {
     if (oldTrack) this.outbound.removeTrack(oldTrack)
     this.outbound.addTrack(this.micTrack)
 
-    try { oldDenoiser?.dispose() } catch {}
+    try {
+      oldProc?.denoiser?.destroy?.()
+      oldProc?.ctx?.close?.()
+    } catch {}
     for (const t of oldRaw?.getTracks() || []) t.stop()
 
     this.handlers.onMicChanged?.(this.outbound)

@@ -13,7 +13,7 @@ const defaultData = {
   friends: [],    // { id, a, b, status:'pending'|'accepted', requestedBy }
   servers: [],    // { id, name, ownerId, color, createdAt }
   members: [],    // { serverId, userId, role, roleIds:[] }
-  roles: [],      // { id, serverId, name, color, canKick, canMute, canMove }
+  roles: [],      // { id, serverId, name, color, canKick, canMute, canMove, canDisconnect }
   stickers: [],   // { id, url, name, addedBy, createdAt }
   channels: [],   // { id, serverId, name, type:'text'|'voice', position }
   messages: [],   // { id, channelId, userId, content, createdAt }

@@ -21,6 +21,7 @@ export default function VoiceStage({ server, channel }) {
   // permissoes de moderacao no servidor deste canal de voz
   const canMute = !!server.myPerms?.mute
   const canMove = !!server.myPerms?.move
+  const canDisconnect = !!server.myPerms?.disconnect
   const voiceChannels = server.channels.filter((c) => c.type === 'voice')
 
   const participants = Object.entries(voice.participants)
@@ -41,6 +42,8 @@ export default function VoiceStage({ server, channel }) {
         <span className="hint">{server.name}</span>
       </header>
 
+      {voice.notice && <div className="voice-notice">{voice.notice}</div>}
+
       {!connectedHere ? (
         <div className="voice-join">
           <div className="voice-join-icon">🎧</div>
@@ -52,7 +55,6 @@ export default function VoiceStage({ server, channel }) {
         </div>
       ) : (
         <>
-          {voice.notice && <div className="voice-notice">{voice.notice}</div>}
           <div className="voice-stage-main">
             {screens.length > 0 && (
               <div className={`screen-grid ${screens.length === 1 ? 'single' : ''}`}>
@@ -110,13 +112,15 @@ export default function VoiceStage({ server, channel }) {
                     volume={uid ? (voice.volumes[uid] ?? 1) : 1}
                     onVolume={uid ? (v) => voice.setUserVolume(uid, v) : null}
                     mod={
-                      canMute || canMove
+                      canMute || canMove || canDisconnect
                         ? {
                             canMute,
                             canMove,
+                            canDisconnect,
                             voiceChannels: voiceChannels.filter((c) => c.id !== channel.id),
                             onMute: (m) => voice.modMute(sid, m),
                             onMove: (chId) => voice.modMove(sid, chId),
+                            onDisconnect: () => voice.modDisconnect(sid),
                           }
                         : null
                     }
@@ -349,6 +353,20 @@ function PersonCard({
                       🔊 {c.name}
                     </button>
                   ))}
+                </>
+              )}
+              {mod?.canDisconnect && (
+                <>
+                  <div className="pc-mod-sep" />
+                  <button
+                    className="pc-mod-danger"
+                    onClick={() => {
+                      mod.onDisconnect()
+                      setMenu(false)
+                    }}
+                  >
+                    desconectar da call
+                  </button>
                 </>
               )}
             </div>

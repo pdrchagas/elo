@@ -39,6 +39,7 @@ function hydrate(s, uid) {
       kick: memberCan(s, uid, 'canKick'),
       mute: memberCan(s, uid, 'canMute'),
       move: memberCan(s, uid, 'canMove'),
+      disconnect: memberCan(s, uid, 'canDisconnect'),
     },
     roles: db.data.roles.filter((role) => role.serverId === s.id),
     channels: db.data.channels
@@ -183,6 +184,7 @@ r.post('/:id/roles', async (req, res) => {
     canKick: !!req.body?.canKick,
     canMute: !!req.body?.canMute,
     canMove: !!req.body?.canMove,
+    canDisconnect: !!req.body?.canDisconnect,
   }
   db.data.roles.push(role)
   await db.write()
@@ -196,7 +198,8 @@ r.patch('/:id/roles/:rid', async (req, res) => {
   const role = db.data.roles.find((x) => x.id === req.params.rid && x.serverId === s.id)
   if (!role) return res.status(404).json({ error: 'cargo nao encontrado' })
   if (req.body?.name != null) role.name = String(req.body.name).trim().slice(0, 24) || role.name
-  for (const p of ['canKick', 'canMute', 'canMove']) if (p in (req.body || {})) role[p] = !!req.body[p]
+  for (const p of ['canKick', 'canMute', 'canMove', 'canDisconnect'])
+    if (p in (req.body || {})) role[p] = !!req.body[p]
   await db.write()
   notifyServer(s.id, 'sync', { scope: 'servers' })
   res.json({ server: hydrate(s, req.user.id) })

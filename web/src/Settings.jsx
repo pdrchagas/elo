@@ -175,12 +175,33 @@ export default function Settings({ onClose, onLogout, initialTab = 'perfil' }) {
 
             <MicTest deviceId={voice.micDeviceId} />
 
+            <label className="mic-gain">
+              <span>
+                <span className="toggle-label">sensibilidade do microfone</span>
+                <small>
+                  aumenta o volume da sua voz pros outros. suba se reclamarem que você
+                  está baixo; volte pro 1.0× se distorcer.
+                </small>
+              </span>
+              <div className="mic-gain-row">
+                <input
+                  type="range"
+                  min="1"
+                  max="2.5"
+                  step="0.1"
+                  value={voice.micGain}
+                  onChange={(e) => voice.setMicGain(Number(e.target.value))}
+                />
+                <b>{voice.micGain.toFixed(1)}×</b>
+              </div>
+            </label>
+
             <h3 style={{ marginTop: 20 }}>processamento de áudio</h3>
             <Toggle
               checked={voice.noiseSuppress}
               onChange={() => voice.toggleNoiseSuppress()}
-              label="supressão de ruído (IA)"
-              hint="usa RNNoise pra tirar teclado, ventilador e barulho de fundo — bem mais forte que a do navegador. cada pessoa liga a sua."
+              label="supressão de ruído (IA) — experimental"
+              hint="usa RNNoise pra tirar teclado, ventilador e barulho de fundo. vem DESLIGADA porque em PC fraco pode picotar o áudio; ligue só se precisar. cada pessoa liga a sua."
             />
             <Toggle
               checked={voice.echoCancel}

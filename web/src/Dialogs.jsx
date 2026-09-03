@@ -283,21 +283,22 @@ export function InviteDialog({ server, onClose }) {
 }
 
 const PERMS = [
-  ['canKick', '🥾 expulsar'],
+  ['canKick', '🥾 expulsar do servidor'],
   ['canMute', '🔇 silenciar na call'],
-  ['canMove', '↔ mover de canal'],
+  ['canMove', '↔ mover de canal de voz'],
+  ['canDisconnect', '📞 desconectar da call'],
 ]
 
 function RolesSection({ server }) {
   const { refreshServers } = useStore()
   const roles = server.roles || []
   const [name, setName] = useState('')
-  const [perms, setPerms] = useState({ canKick: false, canMute: false, canMove: false })
+  const [perms, setPerms] = useState({ canKick: false, canMute: false, canMove: false, canDisconnect: false })
 
   async function createRole() {
     await api(`/servers/${server.id}/roles`, { method: 'POST', body: { name, ...perms } })
     setName('')
-    setPerms({ canKick: false, canMute: false, canMove: false })
+    setPerms({ canKick: false, canMute: false, canMove: false, canDisconnect: false })
     await refreshServers()
   }
   async function togglePerm(roleId, key, val) {

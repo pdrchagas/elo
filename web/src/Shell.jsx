@@ -221,50 +221,86 @@ export default function Shell() {
   )
 }
 
-// toca o audio somado da call — fica montado enquanto voce esta numa call,
-// mesmo olhando um canal de texto
+// Toca o audio de cada pessoa da call. Fica montado enquanto voce esta numa call,
+// mesmo olhando um canal de texto (por isso mora aqui no Shell, nao no VoiceStage).
 function CallAudio() {
-  const mixStream = useVoice((s) => s.mixStream)
+  const channelId = useVoice((s) => s.channelId)
+  const participants = useVoice((s) => s.participants)
   const deafened = useVoice((s) => s.deafened)
   const spkDeviceId = useVoice((s) => s.spkDeviceId)
-  const participants = useVoice((s) => s.participants)
-  const ref = useRef(null)
+  const volumes = useVoice((s) => s.volumes)
 
-  useEffect(() => {
-    if (ref.current) {
-      ref.current.srcObject = mixStream || null
-      if (mixStream) ref.current.play?.().catch(() => {})
-    }
-  }, [mixStream])
-
-  useEffect(() => {
-    const el = ref.current
-    if (el && spkDeviceId && typeof el.setSinkId === 'function') {
-      el.setSinkId(spkDeviceId).catch(() => {})
-    }
-  }, [spkDeviceId, mixStream])
-
-  if (!mixStream) return null
+  if (!channelId) return null
   return (
-    <div style={{ display: 'none' }}>
-      <audio ref={ref} autoPlay playsInline muted={deafened} />
-      {/* elementos mudos so pra "acordar" o decode de cada stream (quirk antigo do Chrome) */}
+    <div style={{ display: 'none' }} aria-hidden>
       {Object.entries(participants).map(([sid, p]) =>
-        p.micStream ? <PrimeAudio key={sid} stream={p.micStream} /> : null,
+        p.micStream ? (
+          <PeerAudio
+            key={sid}
+            stream={p.micStream}
+            volume={deafened ? 0 : (p.user?.id ? (volumes[p.user.id] ?? 1) : 1)}
+            sinkId={spkDeviceId}
+          />
+        ) : null,
       )}
     </div>
   )
 }
 
-function PrimeAudio({ stream }) {
+function PeerAudio({ stream, volume, sinkId }) {
   const ref = useRef(null)
+  const boostRef = useRef(null) // { ctx, gain } quando volume > 1
+  const boosted = volume > 1.02
+
   useEffect(() => {
-    if (ref.current) {
-      ref.current.srcObject = stream
-      ref.current.play?.().catch(() => {})
+    const el = ref.current
+    if (!el) return
+
+    if (boosted) {
+      try {
+        const Ctx = window.AudioContext || window.webkitAudioContext
+        const ctx = new Ctx()
+        const src = ctx.createMediaStreamSource(stream)
+        const gain = ctx.createGain()
+        gain.gain.value = volume
+        const dest = ctx.createMediaStreamDestination()
+        src.connect(gain).connect(dest)
+        if (ctx.state === 'suspended') ctx.resume().catch(() => {})
+        el.srcObject = dest.stream
+        el.volume = 1
+        boostRef.current = { ctx, gain }
+      } catch {
+        el.srcObject = stream
+        el.volume = 1
+      }
+    } else {
+      el.srcObject = stream
+      el.volume = Math.max(0, Math.min(1, volume))
     }
-  }, [stream])
-  return <audio ref={ref} autoPlay playsInline muted />
+    el.play?.().catch(() => {})
+
+    return () => {
+      if (boostRef.current) {
+        try { boostRef.current.ctx.close() } catch {}
+        boostRef.current = null
+      }
+    }
+  }, [stream, boosted])
+
+  // muda o volume sem reconectar
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    if (boostRef.current) boostRef.current.gain.gain.value = volume
+    else el.volume = Math.max(0, Math.min(1, volume))
+  }, [volume])
+
+  useEffect(() => {
+    const el = ref.current
+    if (el && sinkId && typeof el.setSinkId === 'function') el.setSinkId(sinkId).catch(() => {})
+  }, [sinkId, stream])
+
+  return <audio ref={ref} autoPlay playsInline />
 }
 
 function VoiceRoster({ channelId }) {

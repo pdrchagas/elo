@@ -1320,6 +1320,32 @@ input:not([type='checkbox']):not([type='radio']):focus {
   transition: width 0.08s linear;
 }
 
+.mic-gain {
+  display: block;
+  padding: 8px 0 4px;
+  max-width: 520px;
+  text-transform: none;
+  font-weight: 400;
+}
+.mic-gain small {
+  display: block;
+  color: var(--text-dim);
+}
+.mic-gain-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+.mic-gain-row input[type='range'] {
+  flex: 1;
+}
+.mic-gain-row b {
+  min-width: 40px;
+  text-align: right;
+  color: var(--text);
+}
+
 .settings-account {
   display: flex;
   align-items: center;
@@ -1601,6 +1627,13 @@ input:not([type='checkbox']):not([type='radio']):focus {
 }
 .pc-mod-menu button:hover {
   background: #ffffff10;
+}
+.pc-mod-menu .pc-mod-danger {
+  color: #ff8f92;
+}
+.pc-mod-menu .pc-mod-danger:hover {
+  background: var(--red);
+  color: #fff;
 }
 .pc-mod-sep {
   font-size: 10px;
