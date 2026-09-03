@@ -3,6 +3,10 @@ import { getSocket } from './socket.js'
 import { MeshManager } from './webrtc.js'
 import { createSpeakingDetector } from './audio.js'
 import { playJoin, playLeave, playSelfJoin } from './sounds.js'
+import {
+  ensureMixer, teardownMixer, attach as mixAttach, detach as mixDetach,
+  updateUserId as mixUpdateUser, setVolume as mixSetVolume, getUserVolume,
+} from './mixer.js'
 
 let mesh = null
 let cleanupMeta = null
@@ -37,6 +41,8 @@ export const useVoice = create((set, get) => ({
   localStream: null,
   screenStream: null,
   cameraStream: null,
+  mixStream: null, // audio somado de todo mundo (tocado pelo Shell)
+  volumes: {}, // { [userId]: multiplicador 0..2 } — pra UI
   participants: {}, // socketId -> { user, state, micStream, screenStream, cameraStream, speaking }
 
   async connect(channelId) {
@@ -46,7 +52,7 @@ export const useVoice = create((set, get) => ({
     const socket = getSocket()
     if (!socket) return set({ error: 'sem conexao com o servidor' })
 
-    set({ connecting: true, channelId, error: null, participants: {} })
+    set({ connecting: true, channelId, error: null, participants: {}, mixStream: ensureMixer() })
     rawStreams.clear()
     trackKinds.clear()
     micStreamId.clear()
@@ -71,7 +77,7 @@ export const useVoice = create((set, get) => ({
 
       patch(sid, { micStream, screenStream, cameraStream })
 
-      // (re)liga o detector de fala se o stream de microfone mudou
+      // (re)liga o detector de fala + o mixer se o stream de microfone mudou
       if (micStream && micStreamId.get(sid) !== micStream.id) {
         speaking.get(sid)?.()
         micStreamId.set(sid, micStream.id)
@@ -81,6 +87,11 @@ export const useVoice = create((set, get) => ({
             if (get().participants[sid]) patch(sid, { speaking: sp })
           }),
         )
+        const uid = get().participants[sid]?.user?.id
+        mixAttach(sid, micStream, uid)
+        if (uid) {
+          set((s) => ({ volumes: { ...s.volumes, [uid]: s.volumes[uid] ?? getUserVolume(uid) } }))
+        }
       }
     }
 
@@ -99,6 +110,7 @@ export const useVoice = create((set, get) => ({
       onPeerGone: (sid) => {
         speaking.get(sid)?.()
         speaking.delete(sid)
+        mixDetach(sid)
         rawStreams.delete(sid)
         trackKinds.delete(sid)
         micStreamId.delete(sid)
@@ -120,11 +132,21 @@ export const useVoice = create((set, get) => ({
       },
     })
 
+    const linkVolume = (socketId, user) => {
+      if (!user?.id) return
+      mixUpdateUser(socketId, user.id)
+      set((s) => ({ volumes: { ...s.volumes, [user.id]: s.volumes[user.id] ?? getUserVolume(user.id) } }))
+    }
     const onPeerJoined = ({ socketId, user, state }) => {
       patch(socketId, { user, state })
+      linkVolume(socketId, user)
       if (get().sounds && !get().deafened) playJoin()
     }
-    const onPeers = ({ peers }) => peers.forEach((p) => patch(p.socketId, { user: p.user, state: p.state }))
+    const onPeers = ({ peers }) =>
+      peers.forEach((p) => {
+        patch(p.socketId, { user: p.user, state: p.state })
+        linkVolume(p.socketId, p.user)
+      })
     const onPeerState = ({ socketId, state }) => {
       if (get().participants[socketId]) patch(socketId, { state })
     }
@@ -191,6 +213,7 @@ export const useVoice = create((set, get) => ({
     cleanupMeta?.()
     cleanupMeta = null
     clearSpeaking()
+    teardownMixer()
     rawStreams.clear()
     trackKinds.clear()
     micStreamId.clear()
@@ -204,11 +227,18 @@ export const useVoice = create((set, get) => ({
       localStream: null,
       screenStream: null,
       cameraStream: null,
+      mixStream: null,
       sharing: false,
       camera: false,
       selfSpeaking: false,
       forceMuted: false,
     })
+  },
+
+  setUserVolume(userId, v) {
+    const val = Math.max(0, Math.min(2, v))
+    mixSetVolume(userId, val)
+    set((s) => ({ volumes: { ...s.volumes, [userId]: val } }))
   },
 
   toggleMute() {

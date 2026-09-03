@@ -1608,6 +1608,30 @@ input:not([type='checkbox']):not([type='radio']):focus {
   color: var(--text-dim);
   padding: 6px 8px 2px;
 }
+.pc-vol {
+  padding: 8px;
+  border-bottom: 1px solid #ffffff10;
+  display: grid;
+  gap: 6px;
+}
+.pc-vol-top {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.pc-vol-top b {
+  color: var(--text);
+}
+.pc-vol input[type='range'] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+.pc-vol-reset {
+  font-size: 11px;
+  color: var(--accent);
+  text-align: left;
+}
 
 .voice-notice {
   margin: 10px 16px 0;

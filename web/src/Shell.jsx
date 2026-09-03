@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from './store.js'
 import { useVoice } from './voice.js'
 import { api } from './api.js'
@@ -191,6 +191,8 @@ export default function Shell() {
 
       {server && <MembersPanel server={server} onClose={() => setMembersMobile(false)} />}
 
+      <CallAudio />
+
       {dialog === 'server' && <CreateServerDialog onClose={() => setDialog(null)} />}
       {dialog === 'invite' && server && (
         <InviteDialog server={server} onClose={() => setDialog(null)} />
@@ -217,6 +219,52 @@ export default function Shell() {
       )}
     </div>
   )
+}
+
+// toca o audio somado da call — fica montado enquanto voce esta numa call,
+// mesmo olhando um canal de texto
+function CallAudio() {
+  const mixStream = useVoice((s) => s.mixStream)
+  const deafened = useVoice((s) => s.deafened)
+  const spkDeviceId = useVoice((s) => s.spkDeviceId)
+  const participants = useVoice((s) => s.participants)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    if (ref.current) {
+      ref.current.srcObject = mixStream || null
+      if (mixStream) ref.current.play?.().catch(() => {})
+    }
+  }, [mixStream])
+
+  useEffect(() => {
+    const el = ref.current
+    if (el && spkDeviceId && typeof el.setSinkId === 'function') {
+      el.setSinkId(spkDeviceId).catch(() => {})
+    }
+  }, [spkDeviceId, mixStream])
+
+  if (!mixStream) return null
+  return (
+    <div style={{ display: 'none' }}>
+      <audio ref={ref} autoPlay playsInline muted={deafened} />
+      {/* elementos mudos so pra "acordar" o decode de cada stream (quirk antigo do Chrome) */}
+      {Object.entries(participants).map(([sid, p]) =>
+        p.micStream ? <PrimeAudio key={sid} stream={p.micStream} /> : null,
+      )}
+    </div>
+  )
+}
+
+function PrimeAudio({ stream }) {
+  const ref = useRef(null)
+  useEffect(() => {
+    if (ref.current) {
+      ref.current.srcObject = stream
+      ref.current.play?.().catch(() => {})
+    }
+  }, [stream])
+  return <audio ref={ref} autoPlay playsInline muted />
 }
 
 function VoiceRoster({ channelId }) {
