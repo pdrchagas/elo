@@ -103,6 +103,18 @@ r.get('/me', authMiddleware, (req, res) => {
   res.json({ user: publicUser(user) })
 })
 
+// editar perfil (nome de exibicao)
+r.post('/profile', authMiddleware, async (req, res) => {
+  const user = db.data.users.find((u) => u.id === req.user.id)
+  if (!user) return res.status(404).json({ error: 'nao encontrado' })
+  const name = String(req.body?.displayName || '').trim().slice(0, 32)
+  if (name.length < 1) return res.status(400).json({ error: 'o nome nao pode ficar vazio' })
+  user.displayName = name
+  await db.write()
+  notifyRelated(user.id, 'sync', { scope: 'all' })
+  res.json({ user: publicUser(user) })
+})
+
 // foto de perfil (envie image: null para remover)
 r.post('/avatar', authMiddleware, async (req, res) => {
   const user = db.data.users.find((u) => u.id === req.user.id)

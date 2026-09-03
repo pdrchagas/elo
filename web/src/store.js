@@ -133,6 +133,12 @@ export const useStore = create((set, get) => ({
     get().refreshAll()
   },
 
+  async setDisplayName(displayName) {
+    const { user } = await api('/auth/profile', { method: 'POST', body: { displayName } })
+    set({ user })
+    get().refreshAll()
+  },
+
   isOnline(userId) {
     return !!get().online[userId]
   },

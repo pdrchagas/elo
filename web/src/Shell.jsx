@@ -8,6 +8,7 @@ import VoiceStage from './VoiceStage.jsx'
 import MembersPanel from './MembersPanel.jsx'
 import Settings from './Settings.jsx'
 import Avatar from './Avatar.jsx'
+import ProfileCard from './ProfileCard.jsx'
 import { CreateServerDialog, InviteDialog, AddChannelDialog, ConfirmDialog } from './Dialogs.jsx'
 import {
   MicIcon, MicOffIcon, HeadphonesIcon, HeadphonesOffIcon,
@@ -163,6 +164,7 @@ export default function Shell() {
       {dialog === 'settings' && (
         <Settings onClose={() => setDialog(null)} onLogout={() => setDialog('logout')} />
       )}
+      <ProfileCard onEditProfile={() => setDialog('settings')} />
       {dialog === 'logout' && (
         <ConfirmDialog
           title="sair da conta"

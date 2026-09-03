@@ -4,13 +4,29 @@ import { useStore } from './store.js'
 import Avatar from './Avatar.jsx'
 import { fileToAvatar } from './media.js'
 
-export default function Settings({ onClose, onLogout }) {
+export default function Settings({ onClose, onLogout, initialTab = 'perfil' }) {
   const voice = useVoice()
-  const { user, setAvatar } = useStore()
-  const [tab, setTab] = useState('voz')
+  const { user, setAvatar, setDisplayName } = useStore()
+  const [tab, setTab] = useState(initialTab)
   const [avatarBusy, setAvatarBusy] = useState(false)
   const [avatarErr, setAvatarErr] = useState('')
   const avatarInput = useRef(null)
+  const [nameDraft, setNameDraft] = useState(user.displayName)
+  const [nameBusy, setNameBusy] = useState(false)
+
+  async function saveName() {
+    const v = nameDraft.trim()
+    if (!v || v === user.displayName) return
+    setNameBusy(true)
+    try {
+      await setDisplayName(v)
+    } catch (e) {
+      alert(e.message)
+      setNameDraft(user.displayName)
+    } finally {
+      setNameBusy(false)
+    }
+  }
 
   async function changeAvatar(file) {
     if (!file) return
@@ -66,11 +82,11 @@ export default function Settings({ onClose, onLogout }) {
     <div className="settings">
       <nav className="settings-nav">
         <div className="settings-nav-title">configuracoes</div>
+        <button className={tab === 'perfil' ? 'active' : ''} onClick={() => setTab('perfil')}>
+          👤 meu perfil
+        </button>
         <button className={tab === 'voz' ? 'active' : ''} onClick={() => setTab('voz')}>
           🎙 voz e video
-        </button>
-        <button className={tab === 'conta' ? 'active' : ''} onClick={() => setTab('conta')}>
-          👤 conta
         </button>
         <div className="settings-nav-spacer" />
         <button className="settings-logout" onClick={onLogout}>
@@ -138,12 +154,12 @@ export default function Settings({ onClose, onLogout }) {
           </div>
         )}
 
-        {tab === 'conta' && (
+        {tab === 'perfil' && (
           <div className="settings-section">
-            <h2>conta</h2>
+            <h2>meu perfil</h2>
 
             <div className="settings-account">
-              <Avatar user={user} size={72} />
+              <Avatar user={user} size={72} noClick />
               <div>
                 <strong>{user.displayName}</strong>
                 <small>@{user.username}</small>
@@ -151,9 +167,27 @@ export default function Settings({ onClose, onLogout }) {
               </div>
             </div>
 
-            <h3>foto de perfil</h3>
+            <h3>nome de exibicao</h3>
+            <div className="name-edit">
+              <input
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value)}
+                maxLength={32}
+                placeholder="como seus amigos te veem"
+              />
+              <button
+                className="btn primary"
+                disabled={nameBusy || !nameDraft.trim() || nameDraft.trim() === user.displayName}
+                onClick={saveName}
+              >
+                {nameBusy ? '…' : 'salvar'}
+              </button>
+            </div>
+            <p className="hint">seu @usuario ({`@${user.username}`}) nao muda.</p>
+
+            <h3 style={{ marginTop: 20 }}>foto de perfil</h3>
             <div className="avatar-edit">
-              <Avatar user={user} size={80} />
+              <Avatar user={user} size={80} noClick />
               <div className="avatar-edit-btns">
                 <input
                   ref={avatarInput}

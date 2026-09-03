@@ -44,6 +44,8 @@ export function registerSignaling(io) {
     function canUseChannel(channelId, type) {
       const ch = db.data.channels.find((c) => c.id === channelId && (!type || c.type === type))
       if (!ch) return null
+      const rec = db.data.users.find((u) => u.id === user.id)
+      if (rec?.isAdmin) return ch
       const member = db.data.members.find((m) => m.serverId === ch.serverId && m.userId === user.id)
       return member ? ch : null
     }
@@ -151,7 +153,7 @@ export function registerSignaling(io) {
         author: {
           id: user.id,
           username: user.username,
-          displayName: user.displayName,
+          displayName: u?.displayName || user.displayName,
           color: u?.color || '#5865F2',
           avatar: u?.avatar || null,
         },

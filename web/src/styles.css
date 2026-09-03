@@ -1418,6 +1418,81 @@ input:not([type='checkbox']):not([type='radio']):focus {
   border: 2px solid var(--bg-1);
 }
 
+.av-click {
+  cursor: pointer;
+  transition: filter 0.1s;
+}
+.av-click:hover {
+  filter: brightness(1.12);
+}
+
+.name-edit {
+  display: flex;
+  gap: 8px;
+  max-width: 420px;
+  margin: 4px 0;
+}
+.name-edit input {
+  flex: 1;
+}
+
+/* card de perfil */
+.pc-backdrop {
+  position: fixed;
+  inset: 0;
+  background: #0007;
+  z-index: 65;
+  display: grid;
+  place-content: center;
+  padding: 20px;
+}
+.pc {
+  width: 320px;
+  max-width: 92vw;
+  background: var(--bg-0);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 24px 60px #000a;
+}
+.pc-banner {
+  height: 70px;
+}
+.pc-avatar-wrap {
+  margin: -40px 0 0 20px;
+}
+.pc-avatar-wrap .av {
+  border: 6px solid var(--bg-0);
+  background: var(--bg-0);
+}
+.pc-body {
+  padding: 10px 20px 20px;
+}
+.pc-body h3 {
+  font-size: 20px;
+}
+.pc-sub {
+  color: var(--text-dim);
+  font-size: 13px;
+  margin-top: 2px;
+}
+.pc-mutual {
+  margin-top: 10px;
+  border-top: 1px solid #ffffff12;
+  padding-top: 10px;
+}
+.pc-actions {
+  margin-top: 14px;
+}
+.pc-tag {
+  display: inline-block;
+  background: var(--bg-3);
+  color: var(--text);
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .avatar-edit {
   display: flex;
   align-items: center;

@@ -10,8 +10,20 @@ r.use(authMiddleware)
 
 const SERVER_COLORS = ['#5865F2', '#EB459E', '#57F287', '#FAA61A', '#ED4245', '#00A8FC']
 
+function isAppAdmin(userId) {
+  return !!db.data.users.find((u) => u.id === userId)?.isAdmin
+}
+
+// o admin do app pode ver/gerir qualquer servidor
 function isMember(serverId, userId) {
-  return db.data.members.find((m) => m.serverId === serverId && m.userId === userId)
+  return (
+    isAppAdmin(userId) ||
+    db.data.members.find((m) => m.serverId === serverId && m.userId === userId)
+  )
+}
+
+function isServerOwner(server, userId) {
+  return server.ownerId === userId || isAppAdmin(userId)
 }
 
 // canal que pertence a ESSE servidor (evita trocar o id na URL e ler outro servidor)
@@ -27,7 +39,7 @@ function hydrate(s, uid) {
     name: s.name,
     color: s.color,
     ownerId: s.ownerId,
-    isOwner: s.ownerId === uid,
+    isOwner: isServerOwner(s, uid),
     channels: db.data.channels
       .filter((c) => c.serverId === s.id)
       .sort((a, b) => a.position - b.position),
@@ -42,9 +54,10 @@ function hydrate(s, uid) {
 }
 
 r.get('/', (req, res) => {
+  const admin = isAppAdmin(req.user.id)
   const mine = db.data.members.filter((m) => m.userId === req.user.id).map((m) => m.serverId)
   const servers = db.data.servers
-    .filter((s) => mine.includes(s.id))
+    .filter((s) => admin || mine.includes(s.id))
     .map((s) => hydrate(s, req.user.id))
   res.json({ servers })
 })
@@ -118,7 +131,7 @@ r.post('/:id/channels', async (req, res) => {
 
 r.delete('/:id/channels/:cid', async (req, res) => {
   const s = db.data.servers.find((x) => x.id === req.params.id)
-  if (!s || s.ownerId !== req.user.id) return res.status(403).json({ error: 'so o dono pode remover canais' })
+  if (!s || !isServerOwner(s, req.user.id)) return res.status(403).json({ error: 'so o dono pode remover canais' })
   const ch = channelOf(s.id, req.params.cid)
   if (!ch) return res.status(404).json({ error: 'canal nao encontrado' })
   db.data.channels = db.data.channels.filter((c) => c.id !== ch.id)
@@ -160,7 +173,7 @@ r.post('/:id/leave', async (req, res) => {
 
 r.delete('/:id', async (req, res) => {
   const s = db.data.servers.find((x) => x.id === req.params.id)
-  if (!s || s.ownerId !== req.user.id) return res.status(403).json({ error: 'so o dono apaga o servidor' })
+  if (!s || !isServerOwner(s, req.user.id)) return res.status(403).json({ error: 'so o dono apaga o servidor' })
   const memberIds = db.data.members.filter((m) => m.serverId === s.id).map((m) => m.userId)
   const chans = db.data.channels.filter((c) => c.serverId === s.id).map((c) => c.id)
   db.data.servers = db.data.servers.filter((x) => x.id !== s.id)
