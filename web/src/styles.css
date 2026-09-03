@@ -16,6 +16,26 @@
 * {
   box-sizing: border-box;
   margin: 0;
+  scrollbar-width: thin;
+  scrollbar-color: #ffffff26 transparent;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #ffffff26;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #ffffff45;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 html,
@@ -1557,6 +1577,8 @@ input:not([type='checkbox']):not([type='radio']):focus {
 }
 .pc-actions {
   margin-top: 14px;
+  display: grid;
+  gap: 8px;
 }
 .pc-tag {
   display: inline-block;

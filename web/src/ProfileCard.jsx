@@ -7,7 +7,7 @@ import Avatar from './Avatar.jsx'
 export default function ProfileCard({ onEditProfile }) {
   const pu = useProfile((s) => s.user)
   const close = useProfile((s) => s.close)
-  const { user: me, friends, servers, online, refreshFriends } = useStore()
+  const { user: me, friends, servers, activeServerId, online, refreshFriends, refreshServers } = useStore()
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
 
@@ -17,6 +17,27 @@ export default function ProfileCard({ onEditProfile }) {
   const rel = friends.find((f) => f.user.id === pu.id)
   const isOn = !!(online[pu.id] || rel?.user?.online)
   const mutual = servers.filter((s) => s.members?.some((m) => m.id === pu.id)).map((s) => s.name)
+
+  const server = servers.find((s) => s.id === activeServerId)
+  const canKickHere =
+    server &&
+    !isMe &&
+    (server.myPerms?.kick || server.myPerms?.manage) &&
+    server.ownerId !== pu.id &&
+    server.members?.some((m) => m.id === pu.id)
+
+  async function kick() {
+    setBusy(true)
+    try {
+      await api(`/servers/${server.id}/members/${pu.id}`, { method: 'DELETE' })
+      await refreshServers()
+      close()
+    } catch (e) {
+      setMsg(e.message)
+    } finally {
+      setBusy(false)
+    }
+  }
 
   async function addFriend() {
     setBusy(true)
@@ -66,6 +87,12 @@ export default function ProfileCard({ onEditProfile }) {
             ) : (
               <button className="btn primary full" disabled={busy} onClick={addFriend}>
                 {busy ? '…' : 'adicionar amigo'}
+              </button>
+            )}
+
+            {canKickHere && (
+              <button className="btn danger full" disabled={busy} onClick={kick}>
+                expulsar de {server.name}
               </button>
             )}
           </div>

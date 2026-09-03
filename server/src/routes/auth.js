@@ -9,6 +9,11 @@ const r = Router()
 const COLORS = ['#5865F2', '#57F287', '#FEE75C', '#EB459E', '#ED4245', '#3BA55D', '#FAA61A', '#00A8FC']
 const USERNAME_RE = /^[a-z0-9._-]{3,20}$/
 
+function displayNameTaken(name, exceptId) {
+  const n = name.trim().toLowerCase()
+  return db.data.users.some((u) => u.id !== exceptId && (u.displayName || '').trim().toLowerCase() === n)
+}
+
 export function publicUser(u) {
   return {
     id: u.id,
@@ -59,6 +64,7 @@ r.post('/register', async (req, res) => {
     if (inviteRec.maxUses && inviteRec.uses >= inviteRec.maxUses) return res.status(403).json({ error: 'convite ja foi usado o maximo de vezes' })
   }
   if (db.data.users.find((u) => u.username === uname)) return res.status(409).json({ error: 'esse nome de usuario ja existe' })
+  if (displayNameTaken(display || uname)) return res.status(409).json({ error: 'ja tem alguem com esse nome — escolha outro' })
 
   const user = {
     id: nanoid(),
@@ -112,6 +118,7 @@ r.post('/profile', authMiddleware, async (req, res) => {
   if (!user) return res.status(404).json({ error: 'nao encontrado' })
   const name = String(req.body?.displayName || '').trim().slice(0, 32)
   if (name.length < 1) return res.status(400).json({ error: 'o nome nao pode ficar vazio' })
+  if (displayNameTaken(name, user.id)) return res.status(409).json({ error: 'ja tem alguem com esse nome' })
   user.displayName = name
   await db.write()
   notifyRelated(user.id, 'sync', { scope: 'all' })
