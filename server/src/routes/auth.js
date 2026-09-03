@@ -2,7 +2,7 @@ import { Router } from 'express'
 import bcrypt from 'bcryptjs'
 import { db, nanoid } from '../db.js'
 import { signToken, authMiddleware } from '../auth.js'
-import { notifyUser } from '../realtime.js'
+import { notifyUser, notifyRelated } from '../realtime.js'
 
 const r = Router()
 
@@ -15,9 +15,13 @@ export function publicUser(u) {
     username: u.username,
     displayName: u.displayName,
     color: u.color,
+    avatar: u.avatar || null,
     isAdmin: !!u.isAdmin,
   }
 }
+
+const AVATAR_RE = /^data:image\/(png|jpe?g|webp);base64,[a-z0-9+/=]{16,}$/i
+const MAX_AVATAR_CHARS = 500_000
 
 // Consulta publica de um convite (usada pela tela de cadastro)
 r.get('/invite/:code', (req, res) => {
@@ -96,6 +100,26 @@ r.post('/login', async (req, res) => {
 r.get('/me', authMiddleware, (req, res) => {
   const user = db.data.users.find((u) => u.id === req.user.id)
   if (!user) return res.status(404).json({ error: 'nao encontrado' })
+  res.json({ user: publicUser(user) })
+})
+
+// foto de perfil (envie image: null para remover)
+r.post('/avatar', authMiddleware, async (req, res) => {
+  const user = db.data.users.find((u) => u.id === req.user.id)
+  if (!user) return res.status(404).json({ error: 'nao encontrado' })
+
+  const img = req.body?.image
+  if (img === null || img === '') {
+    user.avatar = null
+  } else {
+    const str = String(img || '')
+    if (str.length > MAX_AVATAR_CHARS || !AVATAR_RE.test(str)) {
+      return res.status(400).json({ error: 'imagem invalida ou muito grande' })
+    }
+    user.avatar = str
+  }
+  await db.write()
+  notifyRelated(user.id, 'sync', { scope: 'all' })
   res.json({ user: publicUser(user) })
 })
 

@@ -65,6 +65,7 @@ export default function VoiceStage({ server, channel }) {
               <PersonCard
                 name={`${me.displayName} (voce)`}
                 color={me.color}
+                avatar={me.avatar}
                 speaking={voice.selfSpeaking}
                 muted={voice.muted}
                 deafened={voice.deafened}
@@ -78,6 +79,7 @@ export default function VoiceStage({ server, channel }) {
                   key={sid}
                   name={p.user?.displayName || 'conectando…'}
                   color={p.user?.color}
+                  avatar={p.user?.avatar}
                   speaking={p.speaking}
                   muted={p.state?.muted}
                   deafened={p.state?.deafened}
@@ -185,6 +187,7 @@ function ExpandedScreen({ stream, muted, sinkId }) {
 function PersonCard({
   name,
   color = '#5865F2',
+  avatar,
   speaking,
   muted,
   deafened,
@@ -218,6 +221,8 @@ function PersonCard({
           playsInline
           muted={cameraMuted || !!deafenedByMe}
         />
+      ) : avatar ? (
+        <img className="person-avatar" src={avatar} alt="" />
       ) : (
         <div className="person-avatar" style={{ background: color }}>
           {name.slice(0, 1).toUpperCase()}

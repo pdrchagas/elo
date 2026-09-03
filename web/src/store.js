@@ -62,7 +62,10 @@ export const useStore = create((set, get) => ({
     socket.on('sync', ({ scope } = {}) => {
       if (scope === 'friends') get().refreshFriends()
       else if (scope === 'servers') get().refreshServers()
-      else get().refreshAll()
+      else {
+        get().refreshMe()
+        get().refreshAll()
+      }
     })
     socket.on('presence', ({ userId, online }) => {
       set((s) => {
@@ -115,6 +118,19 @@ export const useStore = create((set, get) => ({
     const { friends } = await api('/friends')
     set({ friends })
     get()._seedPresence([friends])
+  },
+
+  async refreshMe() {
+    try {
+      const { user } = await api('/auth/me')
+      set({ user })
+    } catch {}
+  },
+
+  async setAvatar(image) {
+    const { user } = await api('/auth/avatar', { method: 'POST', body: { image } })
+    set({ user })
+    get().refreshAll()
   },
 
   isOnline(userId) {

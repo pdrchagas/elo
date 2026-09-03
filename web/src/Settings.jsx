@@ -1,11 +1,29 @@
 import { useEffect, useRef, useState } from 'react'
 import { useVoice } from './voice.js'
 import { useStore } from './store.js'
+import Avatar from './Avatar.jsx'
+import { fileToAvatar } from './media.js'
 
 export default function Settings({ onClose, onLogout }) {
   const voice = useVoice()
-  const user = useStore((s) => s.user)
+  const { user, setAvatar } = useStore()
   const [tab, setTab] = useState('voz')
+  const [avatarBusy, setAvatarBusy] = useState(false)
+  const [avatarErr, setAvatarErr] = useState('')
+  const avatarInput = useRef(null)
+
+  async function changeAvatar(file) {
+    if (!file) return
+    setAvatarErr('')
+    setAvatarBusy(true)
+    try {
+      await setAvatar(await fileToAvatar(file))
+    } catch (e) {
+      setAvatarErr(e.message || 'nao deu pra usar essa foto')
+    } finally {
+      setAvatarBusy(false)
+    }
+  }
   const [mics, setMics] = useState([])
   const [spks, setSpks] = useState([])
   const [needPerm, setNeedPerm] = useState(false)
@@ -123,16 +141,44 @@ export default function Settings({ onClose, onLogout }) {
         {tab === 'conta' && (
           <div className="settings-section">
             <h2>conta</h2>
+
             <div className="settings-account">
-              <span className="avatar" style={{ background: user.color }}>
-                {user.displayName.slice(0, 1).toUpperCase()}
-              </span>
+              <Avatar user={user} size={72} />
               <div>
                 <strong>{user.displayName}</strong>
                 <small>@{user.username}</small>
                 {user.isAdmin && <small> · admin</small>}
               </div>
             </div>
+
+            <h3>foto de perfil</h3>
+            <div className="avatar-edit">
+              <Avatar user={user} size={80} />
+              <div className="avatar-edit-btns">
+                <input
+                  ref={avatarInput}
+                  type="file"
+                  accept="image/*"
+                  hidden
+                  onChange={(e) => {
+                    changeAvatar(e.target.files?.[0])
+                    e.target.value = ''
+                  }}
+                />
+                <button className="btn" disabled={avatarBusy} onClick={() => avatarInput.current?.click()}>
+                  {avatarBusy ? 'enviando…' : 'escolher foto'}
+                </button>
+                {user.avatar && (
+                  <button className="btn ghost" disabled={avatarBusy} onClick={() => setAvatar(null)}>
+                    remover
+                  </button>
+                )}
+              </div>
+            </div>
+            {avatarErr && <p className="form-error">{avatarErr}</p>}
+            <p className="hint">a foto é recortada em quadrado e reduzida automaticamente.</p>
+
+            <h3 style={{ marginTop: 24 }}>sessão</h3>
             <button className="btn danger" onClick={onLogout}>
               sair da conta
             </button>

@@ -49,3 +49,36 @@ export async function fileToChatImage(file, { maxDim = 1024 } = {}) {
   }
   throw new Error('nao consegui comprimir a imagem o suficiente')
 }
+
+// Foto de perfil: recorta no centro em quadrado e reduz pra 256px.
+export async function fileToAvatar(file, size = 256) {
+  if (!file || !file.type.startsWith('image/')) throw new Error('nao e imagem')
+  if (file.size > 25 * 1024 * 1024) throw new Error('imagem muito grande')
+
+  const bitmap = await createImageBitmap(file).catch(async () => {
+    const url = URL.createObjectURL(file)
+    const img = await new Promise((ok, err) => {
+      const i = new Image()
+      i.onload = () => ok(i)
+      i.onerror = err
+      i.src = url
+    })
+    URL.revokeObjectURL(url)
+    return img
+  })
+
+  const side = Math.min(bitmap.width, bitmap.height)
+  const sx = (bitmap.width - side) / 2
+  const sy = (bitmap.height - side) / 2
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')
+  ctx.drawImage(bitmap, sx, sy, side, side, 0, 0, size, size)
+
+  for (const q of [0.82, 0.7, 0.55, 0.4]) {
+    const uri = canvas.toDataURL('image/jpeg', q)
+    if (uri.length < 480_000) return uri
+  }
+  throw new Error('nao consegui comprimir a foto')
+}

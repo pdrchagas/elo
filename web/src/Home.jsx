@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useStore } from './store.js'
 import { api } from './api.js'
 import { CreateServerDialog } from './Dialogs.jsx'
+import Avatar from './Avatar.jsx'
 
 export default function Home() {
   const { user, friends, refreshFriends, online } = useStore()
@@ -66,9 +67,7 @@ export default function Home() {
             <h3>pedidos recebidos</h3>
             {incoming.map((f) => (
               <div key={f.rel} className="friend-row">
-                <span className="avatar sm" style={{ background: f.user.color }}>
-                  {f.user.displayName.slice(0, 1).toUpperCase()}
-                </span>
+                <Avatar user={f.user} size={28} />
                 <span className="grow">{f.user.displayName} <small>@{f.user.username}</small></span>
                 <button className="btn sm primary" onClick={() => act(f.rel, '/accept')}>
                   aceitar
@@ -92,9 +91,7 @@ export default function Home() {
             const isOn = !!(online[f.user.id] || f.user.online)
             return (
               <div key={f.rel} className={`friend-row ${isOn ? '' : 'dim'}`}>
-                <span className={`avatar sm ${isOn ? 'online' : ''}`} style={{ background: f.user.color }}>
-                  {f.user.displayName.slice(0, 1).toUpperCase()}
-                </span>
+                <Avatar user={f.user} size={28} online={isOn} />
                 <span className="grow">
                   {f.user.displayName} <small>{isOn ? 'online' : `@${f.user.username}`}</small>
                 </span>
@@ -106,9 +103,7 @@ export default function Home() {
           })}
           {pendingSent.map((f) => (
             <div key={f.rel} className="friend-row dim">
-              <span className="avatar sm" style={{ background: f.user.color }}>
-                {f.user.displayName.slice(0, 1).toUpperCase()}
-              </span>
+              <Avatar user={f.user} size={28} />
               <span className="grow">{f.user.displayName} <small>pedido pendente</small></span>
               <button className="btn sm ghost" onClick={() => act(f.rel, '')}>
                 cancelar

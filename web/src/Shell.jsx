@@ -7,6 +7,7 @@ import Chat from './Chat.jsx'
 import VoiceStage from './VoiceStage.jsx'
 import MembersPanel from './MembersPanel.jsx'
 import Settings from './Settings.jsx'
+import Avatar from './Avatar.jsx'
 import { CreateServerDialog, InviteDialog, AddChannelDialog, ConfirmDialog } from './Dialogs.jsx'
 import {
   MicIcon, MicOffIcon, HeadphonesIcon, HeadphonesOffIcon,
@@ -263,9 +264,7 @@ function UserBar({ user, onOpenSettings }) {
 
   return (
     <div className="userbar">
-      <span className="avatar sm online" style={{ background: user.color }}>
-        {user.displayName.slice(0, 1).toUpperCase()}
-      </span>
+      <Avatar user={user} size={30} online />
       <div className="userbar-name">
         <strong>{user.displayName}</strong>
         <small>@{user.username}</small>

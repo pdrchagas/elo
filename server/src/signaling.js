@@ -48,6 +48,17 @@ export function registerSignaling(io) {
       return member ? ch : null
     }
 
+    function brief(u) {
+      const rec = db.data.users.find((x) => x.id === u.id)
+      return {
+        id: u.id,
+        username: u.username,
+        displayName: u.displayName,
+        color: rec?.color || '#5865F2',
+        avatar: rec?.avatar || null,
+      }
+    }
+
     // ---- Voz / tela ----
     socket.on('voice:join', ({ channelId } = {}) => {
       if (!canUseChannel(channelId, 'voice')) return socket.emit('voice:error', { error: 'sem acesso a esse canal' })
@@ -60,12 +71,12 @@ export function registerSignaling(io) {
       for (const sid of io.sockets.adapter.rooms.get(voiceRoom(channelId)) || []) {
         if (sid === socket.id) continue
         const s = io.sockets.sockets.get(sid)
-        if (s) peers.push({ socketId: sid, user: s.user, state: s.voiceState || {} })
+        if (s) peers.push({ socketId: sid, user: brief(s.user), state: s.voiceState || {} })
       }
       socket.emit('voice:peers', { channelId, peers })
       socket.to(voiceRoom(channelId)).emit('voice:peer-joined', {
         socketId: socket.id,
-        user,
+        user: brief(user),
         state: socket.voiceState,
       })
     })
@@ -129,6 +140,7 @@ export function registerSignaling(io) {
         createdAt: Date.now(),
       }
       await messages.add(msg)
+      const u = db.data.users.find((x) => x.id === user.id)
       io.to(`chat:${channelId}`).emit('chat:message', {
         id: msg.id,
         channelId,
@@ -136,14 +148,16 @@ export function registerSignaling(io) {
         image: img,
         sticker: stk,
         createdAt: msg.createdAt,
-        author: { id: user.id, username: user.username, displayName: user.displayName, color: meColor(user.id) },
+        author: {
+          id: user.id,
+          username: user.username,
+          displayName: user.displayName,
+          color: u?.color || '#5865F2',
+          avatar: u?.avatar || null,
+        },
       })
     })
 
     socket.on('disconnect', leaveVoice)
   })
-}
-
-function meColor(userId) {
-  return db.data.users.find((u) => u.id === userId)?.color || '#5865F2'
 }

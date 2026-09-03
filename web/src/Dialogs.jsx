@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from './api.js'
 import { useStore } from './store.js'
+import Avatar from './Avatar.jsx'
 
 function Modal({ title, onClose, children }) {
   return (
@@ -42,6 +43,7 @@ export function CreateServerDialog({ onClose }) {
   const [name, setName] = useState('')
   const [picked, setPicked] = useState([])
   const [err, setErr] = useState('')
+  const [busy, setBusy] = useState(false)
 
   function toggle(id) {
     setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]))
@@ -49,16 +51,19 @@ export function CreateServerDialog({ onClose }) {
 
   async function create() {
     setErr('')
+    setBusy(true)
     try {
       const { server } = await api('/servers', {
         method: 'POST',
-        body: { name, friendIds: picked },
+        body: { name: name.trim(), friendIds: picked },
       })
       await refreshAll()
       selectServer(server.id)
       onClose()
     } catch (e) {
       setErr(e.message)
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -69,23 +74,31 @@ export function CreateServerDialog({ onClose }) {
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="ex: os amigos" />
       </label>
 
-      <p className="hint">adicionar amigos agora (opcional):</p>
-      <div className="pick-list">
-        {accepted.length === 0 && <p className="hint">voce ainda nao tem amigos aceitos.</p>}
-        {accepted.map((f) => (
-          <label key={f.rel} className="pick-item">
-            <input type="checkbox" checked={picked.includes(f.user.id)} onChange={() => toggle(f.user.id)} />
-            <span className="avatar sm" style={{ background: f.user.color }}>
-              {f.user.displayName.slice(0, 1).toUpperCase()}
-            </span>
-            {f.user.displayName}
-          </label>
-        ))}
+      <div>
+        <p className="hint" style={{ marginBottom: 6 }}>adicionar amigos agora (opcional):</p>
+        <div className="pick-list">
+          {accepted.length === 0 && <p className="hint">voce ainda nao tem amigos aceitos.</p>}
+          {accepted.map((f) => {
+            const on = picked.includes(f.user.id)
+            return (
+              <button
+                key={f.rel}
+                type="button"
+                className={`pick-item ${on ? 'on' : ''}`}
+                onClick={() => toggle(f.user.id)}
+              >
+                <span className="pick-check">{on ? '✓' : ''}</span>
+                <Avatar user={f.user} size={26} />
+                <span className="pick-name">{f.user.displayName}</span>
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       {err && <div className="form-error">{err}</div>}
-      <button className="btn primary full" disabled={!name.trim()} onClick={create}>
-        criar
+      <button className="btn primary full" disabled={!name.trim() || busy} onClick={create}>
+        {busy ? 'criando…' : 'criar'}
       </button>
     </Modal>
   )

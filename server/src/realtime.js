@@ -55,6 +55,11 @@ export function notifyServer(serverId, event, payload, exceptUserId = null) {
   notifyUsers(ids, event, payload)
 }
 
+// notifica todo mundo que "conhece" esse usuario (amigos + quem divide servidor) + ele mesmo
+export function notifyRelated(userId, event, payload) {
+  notifyUsers([userId, ...relatedUserIds(userId)], event, payload)
+}
+
 // usuarios que "conhecem" alguem: amigos + quem divide servidor
 function relatedUserIds(userId) {
   const ids = new Set()

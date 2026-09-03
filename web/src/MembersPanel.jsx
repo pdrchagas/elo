@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { useStore } from './store.js'
+import Avatar from './Avatar.jsx'
 
 export default function MembersPanel({ server }) {
   const online = useStore((s) => s.online)
@@ -34,9 +35,7 @@ export default function MembersPanel({ server }) {
 function MemberRow({ m, online }) {
   return (
     <div className={`member-row ${online ? '' : 'dim'}`}>
-      <span className={`avatar sm ${online ? 'online' : ''}`} style={{ background: m.color }}>
-        {m.displayName.slice(0, 1).toUpperCase()}
-      </span>
+      <Avatar user={m} size={28} online={online} />
       <span className="member-name">
         {m.displayName}
         {m.role === 'owner' && <span title="dono"> 👑</span>}

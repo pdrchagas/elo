@@ -3,6 +3,7 @@ import { api } from './api.js'
 import { getSocket } from './socket.js'
 import { useStore } from './store.js'
 import { STICKERS, fileToChatImage } from './media.js'
+import Avatar from './Avatar.jsx'
 
 export default function Chat({ server, channel }) {
   const [messages, setMessages] = useState([])
@@ -88,9 +89,7 @@ export default function Chat({ server, channel }) {
         {messages.length === 0 && <p className="hint center">seja o primeiro a falar em #{channel.name}</p>}
         {messages.map((m) => (
           <div key={m.id} className="msg">
-            <span className="avatar sm" style={{ background: m.author?.color || '#666' }}>
-              {(m.author?.displayName || '?').slice(0, 1).toUpperCase()}
-            </span>
+            <Avatar user={m.author} size={38} />
             <div className="msg-main">
               <div className="msg-head">
                 <strong>{m.author?.displayName || 'desconhecido'}</strong>
