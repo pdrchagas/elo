@@ -16,6 +16,20 @@ r.use((req, res, next) => {
   next()
 })
 
+// backup completo (baixa um JSON com tudo — guarde num lugar seguro)
+r.get('/backup', async (req, res) => {
+  const backup = {
+    _elo_backup: 1,
+    generatedAt: new Date().toISOString(),
+    state: db.data,
+    messages: await messages.all().catch(() => []),
+  }
+  const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')
+  res.setHeader('Content-Disposition', `attachment; filename="elo-backup-${stamp}.json"`)
+  res.setHeader('Content-Type', 'application/json')
+  res.send(JSON.stringify(backup, null, 2))
+})
+
 // lista de todos que se cadastraram (para administrar quem entrou ou nao)
 r.get('/users', (req, res) => {
   const users = db.data.users

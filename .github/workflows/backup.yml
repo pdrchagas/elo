@@ -1,0 +1,35 @@
+name: backup-mongo
+
+# Backup diario do banco `elo`. Requer o secret MONGODB_URI no repositorio.
+# O arquivo fica salvo como "artifact" do workflow (baixa em Actions > run > Artifacts).
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # todo dia ~06:00 UTC (03:00 BRT)
+  workflow_dispatch: {}
+
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: instala mongodb-database-tools
+        run: |
+          curl -sL https://fastdl.mongodb.org/tools/db/mongodb-database-tools-ubuntu2204-x86_64-100.10.0.deb -o mt.deb
+          sudo dpkg -i mt.deb
+
+      - name: dump do banco elo
+        run: |
+          if [ -z "${{ secrets.MONGODB_URI }}" ]; then
+            echo "defina o secret MONGODB_URI"; exit 1
+          fi
+          TS=$(date -u +%Y%m%d-%H%M)
+          echo "TS=$TS" >> $GITHUB_ENV
+          mongodump --uri="${{ secrets.MONGODB_URI }}" --db=elo --gzip --archive="elo-$TS.archive"
+          ls -lh elo-*.archive
+
+      - name: guarda como artifact (90 dias)
+        uses: actions/upload-artifact@v4
+        with:
+          name: elo-backup-${{ env.TS }}
+          path: elo-*.archive
+          retention-days: 90

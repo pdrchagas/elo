@@ -19,6 +19,20 @@ const defaultData = {
   messages: [],   // { id, channelId, userId, content, createdAt }
 }
 
+const KEYS = Object.keys(defaultData)
+const CORE_KEYS = ['users', 'servers', 'members', 'channels'] // existem desde sempre
+
+// Nao esta corrompido = objeto com as colecoes centrais sendo arrays.
+// (chaves novas podem faltar num banco antigo — isso e ok, a gente preenche)
+function looksValid(data) {
+  return (
+    !!data &&
+    typeof data === 'object' &&
+    !Array.isArray(data) &&
+    CORE_KEYS.every((k) => Array.isArray(data[k]))
+  )
+}
+
 // Adapter do lowdb que guarda todo o estado num unico documento do MongoDB.
 // Mantem a mesma API sincrona (db.data.users.push / .find + await db.write()),
 // entao as rotas e a sinalizacao nao mudam.
@@ -31,7 +45,12 @@ class MongoAdapter {
     return doc?.data ?? null
   }
   async write(data) {
-    await this.col.updateOne({ _id: 'main' }, { $set: { data } }, { upsert: true })
+    // trava de seguranca: nunca sobrescreve o estado com algo malformado
+    if (!looksValid(data)) {
+      console.error('db.write BLOQUEADO: estado malformado, nao vou sobrescrever o Mongo', Object.keys(data || {}))
+      return
+    }
+    await this.col.updateOne({ _id: 'main' }, { $set: { data, savedAt: Date.now() } }, { upsert: true })
   }
 }
 
@@ -54,8 +73,25 @@ if (process.env.MONGODB_URI) {
 
 export const db = new Low(adapter, defaultData)
 await db.read()
+
+const wasEmpty = db.data == null
 db.data ||= structuredClone(defaultData)
-for (const key of Object.keys(defaultData)) db.data[key] ??= defaultData[key]
-await db.write()
+
+// se o banco tinha algo mas veio malformado, NAO continua (evita sobrescrever tudo)
+if (!wasEmpty && !looksValid(db.data)) {
+  console.error('FATAL: o estado no banco parece corrompido. Nao vou subir pra nao piorar.')
+  console.error('Restaure de um backup (ver BACKUP-E-DEPLOY.md). Chaves lidas:', Object.keys(db.data))
+  process.exit(1)
+}
+
+// backfill de chaves novas so em memoria; so grava se o banco estava vazio
+let filled = false
+for (const key of KEYS) {
+  if (db.data[key] == null) {
+    db.data[key] = []
+    filled = true
+  }
+}
+if (wasEmpty || (filled && looksValid(db.data))) await db.write()
 
 export { nanoid, mongoClient }

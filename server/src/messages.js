@@ -45,4 +45,10 @@ export const messages = {
     db.data.messages = db.data.messages.filter((m) => !channelIds.includes(m.channelId))
     await db.write()
   },
+
+  // todas as mensagens (usado so no backup)
+  async all() {
+    if (col) return col.find({}, { projection: { _id: 0 } }).toArray()
+    return [...db.data.messages]
+  },
 }

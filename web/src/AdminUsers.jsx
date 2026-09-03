@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { api } from './api.js'
+import { api, BASE, getToken } from './api.js'
 import { useStore } from './store.js'
 import Avatar from './Avatar.jsx'
 
@@ -40,6 +40,27 @@ export default function AdminUsers() {
     refreshAll()
   }
 
+  const [dl, setDl] = useState(false)
+  async function downloadBackup() {
+    setDl(true)
+    try {
+      const res = await fetch(`${BASE}/api/admin/backup`, {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      })
+      if (!res.ok) throw new Error('falhou')
+      const blob = await res.blob()
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = `elo-backup-${new Date().toISOString().slice(0, 10)}.json`
+      a.click()
+      URL.revokeObjectURL(a.href)
+    } catch {
+      alert('nao consegui baixar o backup')
+    } finally {
+      setDl(false)
+    }
+  }
+
   if (!users) return <p className="hint">carregando…</p>
 
   const onlineCount = users.filter((u) => u.online).length
@@ -50,6 +71,11 @@ export default function AdminUsers() {
       <p className="hint">
         {users.length} cadastrados · {onlineCount} online agora
       </p>
+
+      <button className="btn" disabled={dl} onClick={downloadBackup}>
+        {dl ? 'gerando…' : '⬇ baixar backup completo (json)'}
+      </button>
+      <p className="hint">guarde num lugar seguro. o backup automático diário também roda no GitHub.</p>
 
       <div className="admin-users">
         {users.map((u) => (
