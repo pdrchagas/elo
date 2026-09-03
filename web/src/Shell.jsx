@@ -22,10 +22,21 @@ export default function Shell() {
   } = useStore()
   const voice = useVoice()
   const [dialog, setDialog] = useState(null) // 'server' | 'invite' | 'channel' | 'logout'
-  const [showMembers, setShowMembers] = useState(true)
+  const [showMembers, setShowMembers] = useState(true) // coluna no desktop
+  const [navOpen, setNavOpen] = useState(false) // gaveta de canais no mobile
+  const [membersMobile, setMembersMobile] = useState(false) // gaveta de membros no mobile
 
   const server = servers.find((s) => s.id === activeServerId) || null
   const channel = server?.channels.find((c) => c.id === activeChannelId) || null
+
+  function pickChannel(id) {
+    selectChannel(id)
+    setNavOpen(false)
+  }
+  function pickServer(id) {
+    selectServer(id)
+    setNavOpen(false)
+  }
 
   // convite de servidor via ?join=CODE
   useEffect(() => {
@@ -49,13 +60,34 @@ export default function Shell() {
   }, [servers, voice.channelId])
 
   return (
-    <div className="shell">
+    <div className={`shell ${navOpen ? 'nav-open' : ''} ${!showMembers ? 'hide-members' : ''} ${membersMobile ? 'members-mobile' : ''}`}>
+      {/* barra de topo (so no mobile) */}
+      <div className="mobile-bar">
+        <button className="mb-btn" onClick={() => setNavOpen(true)} aria-label="menu">☰</button>
+        <span className="mb-title">
+          {channel ? `# ${channel.name}` : server ? server.name : 'amigos'}
+        </span>
+        {server && (
+          <button className="mb-btn" onClick={() => setMembersMobile((v) => !v)} aria-label="membros">👥</button>
+        )}
+      </div>
+
+      {(navOpen || membersMobile) && (
+        <div
+          className="drawer-backdrop"
+          onClick={() => {
+            setNavOpen(false)
+            setMembersMobile(false)
+          }}
+        />
+      )}
+
       {/* trilha de servidores */}
       <nav className="rail">
         <button
           className={`rail-btn home ${!activeServerId ? 'active' : ''}`}
           title="Amigos"
-          onClick={() => selectServer(null)}
+          onClick={() => pickServer(null)}
         >
           ⌂
         </button>
@@ -66,7 +98,7 @@ export default function Shell() {
             className={`rail-btn ${s.id === activeServerId ? 'active' : ''}`}
             style={{ '--srv': s.color }}
             title={s.name}
-            onClick={() => selectServer(s.id)}
+            onClick={() => pickServer(s.id)}
           >
             {s.name.slice(0, 2).toUpperCase()}
           </button>
@@ -106,7 +138,7 @@ export default function Shell() {
                 <button
                   key={c.id}
                   className={`channel ${c.id === activeChannelId ? 'active' : ''}`}
-                  onClick={() => selectChannel(c.id)}
+                  onClick={() => pickChannel(c.id)}
                 >
                   <span className="hash">#</span> {c.name}
                 </button>
@@ -120,7 +152,7 @@ export default function Shell() {
                   <button
                     className={`channel ${c.id === activeChannelId ? 'active' : ''}`}
                     onClick={() => {
-                      selectChannel(c.id)
+                      pickChannel(c.id)
                       if (voice.channelId !== c.id) voice.connect(c.id)
                     }}
                   >
@@ -152,7 +184,7 @@ export default function Shell() {
         {server && channel?.type === 'voice' && <VoiceStage server={server} channel={channel} />}
       </main>
 
-      {server && showMembers && <MembersPanel server={server} />}
+      {server && <MembersPanel server={server} onClose={() => setMembersMobile(false)} />}
 
       {dialog === 'server' && <CreateServerDialog onClose={() => setDialog(null)} />}
       {dialog === 'invite' && server && (

@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { useStore } from './store.js'
 import Avatar from './Avatar.jsx'
 
-export default function MembersPanel({ server }) {
+export default function MembersPanel({ server, onClose }) {
   const online = useStore((s) => s.online)
 
   const { on, off } = useMemo(() => {
@@ -17,7 +17,10 @@ export default function MembersPanel({ server }) {
 
   return (
     <aside className="members-panel">
-      <div className="members-head">membros — {server.members.length}</div>
+      <div className="members-head">
+        membros — {server.members.length}
+        <button className="members-close" onClick={onClose} aria-label="fechar">✕</button>
+      </div>
 
       <div className="members-group">online — {on.length}</div>
       {on.map((m) => (

@@ -906,6 +906,23 @@ input:not([type='checkbox']):not([type='radio']):focus {
   text-transform: uppercase;
   color: var(--text-dim);
   padding: 4px 8px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.members-close {
+  display: none;
+  font-size: 15px;
+  color: var(--text-dim);
+  padding: 4px 8px;
+}
+
+/* barra de topo + gavetas (so aparecem no mobile) */
+.mobile-bar {
+  display: none;
+}
+.drawer-backdrop {
+  display: none;
 }
 .members-group {
   font-size: 11px;
@@ -939,10 +956,8 @@ input:not([type='checkbox']):not([type='radio']):focus {
   background: var(--accent);
 }
 
-@media (max-width: 900px) {
-  .members-panel {
-    display: none;
-  }
+.shell.hide-members .members-panel {
+  display: none;
 }
 
 /* ---------- pagina de configuracoes ---------- */
@@ -1755,8 +1770,172 @@ input:not([type='checkbox']):not([type='radio']):focus {
   gap: 6px;
 }
 
-@media (max-width: 720px) {
+/* ================= MOBILE ================= */
+@media (max-width: 860px) {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  input:not([type='checkbox']):not([type='radio']),
+  .settings-grid select {
+    font-size: 16px; /* evita zoom no iOS */
+  }
+
   .shell {
-    grid-template-columns: 56px 180px 1fr;
+    display: block;
+    grid-template-columns: none;
+    grid-template-rows: none;
+    position: relative;
+  }
+
+  .mobile-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 50px;
+    padding: 0 8px;
+    background: var(--bg-1);
+    border-bottom: 1px solid #0005;
+    z-index: 25;
+  }
+  .mb-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    font-size: 20px;
+    display: grid;
+    place-content: center;
+    color: var(--text);
+    flex-shrink: 0;
+  }
+  .mb-btn:active {
+    background: #ffffff14;
+  }
+  .mb-title {
+    flex: 1;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .drawer-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: #0008;
+    z-index: 28;
+  }
+
+  /* gaveta de canais (rail + sidebar deslizam juntos) */
+  .rail,
+  .sidebar {
+    position: fixed;
+    top: 0;
+    height: 100%;
+    z-index: 30;
+    transition: transform 0.2s ease;
+  }
+  .rail {
+    left: 0;
+    width: 68px;
+    transform: translateX(-100%);
+  }
+  .sidebar {
+    left: 68px;
+    width: min(300px, calc(100vw - 68px));
+    transform: translateX(-370px);
+  }
+  .shell.nav-open .rail,
+  .shell.nav-open .sidebar {
+    transform: translateX(0);
+  }
+
+  /* conteudo ocupa a tela toda, abaixo da barra de topo */
+  .content {
+    position: fixed;
+    inset: 50px 0 0 0;
+    width: 100%;
+  }
+  .content-head {
+    display: none;
+  }
+
+  /* gaveta de membros (desliza da direita) */
+  .members-panel {
+    position: fixed !important;
+    display: flex !important;
+    top: 50px;
+    right: 0;
+    bottom: 0;
+    height: auto;
+    width: min(260px, 80vw);
+    z-index: 30;
+    transform: translateX(105%);
+    transition: transform 0.2s ease;
+  }
+  .shell.members-mobile .members-panel {
+    transform: translateX(0);
+  }
+  .members-close {
+    display: block;
+  }
+
+  /* ajustes de conteudo */
+  .home-body {
+    max-width: none;
+  }
+  .people-grid {
+    grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  }
+  .screen-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .stage-controls,
+  .control-bar {
+    flex-wrap: wrap;
+  }
+  .msg-image {
+    max-width: 100%;
+  }
+
+  .modal {
+    width: 100%;
+    max-width: 100%;
+    max-height: 92vh;
+    border-radius: 14px 14px 0 0;
+    align-self: flex-end;
+  }
+  .modal-backdrop {
+    place-content: end center;
+  }
+
+  .settings {
+    flex-direction: column;
+  }
+  .settings-nav {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    padding: 10px;
+  }
+  .settings-nav-title,
+  .settings-nav-spacer {
+    display: none;
+  }
+  .settings-body {
+    padding: 20px 16px;
+    max-width: none;
+  }
+  .settings-close {
+    top: 12px;
+    right: 12px;
+  }
+
+  .pc {
+    width: 320px;
   }
 }
