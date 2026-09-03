@@ -1,6 +1,6 @@
 import { db, nanoid } from './db.js'
 import { messages } from './messages.js'
-import { trackPresence, notifyServer, setVoiceRoster } from './realtime.js'
+import { trackPresence, notifyServer, notifyUser, setVoiceRoster } from './realtime.js'
 import { memberCan, serverOfChannel } from './perms.js'
 
 function briefOf(u) {
@@ -166,7 +166,8 @@ export function registerSignaling(io) {
     })
 
     socket.on('chat:send', async ({ channelId, content, image, sticker } = {}) => {
-      if (!canUseChannel(channelId, 'text')) return
+      const ch = canUseChannel(channelId, 'text')
+      if (!ch) return
       if (!chatLimit(socket.id)) return socket.emit('chat:error', { error: 'devagar com as mensagens' })
 
       const text = String(content || '').trim().slice(0, 2000)
@@ -189,6 +190,25 @@ export function registerSignaling(io) {
 
       if (!text && !img && !stk) return
 
+      // mencoes: @username de quem e membro do servidor
+      const serverMembers = db.data.members
+        .filter((m) => m.serverId === ch.serverId)
+        .map((m) => db.data.users.find((x) => x.id === m.userId))
+        .filter(Boolean)
+      const mentionIds = []
+      const mentionUsers = []
+      if (text) {
+        const tags = new Set((text.toLowerCase().match(/@([a-z0-9._-]{3,20})/g) || []).map((s) => s.slice(1)))
+        const everyone = /@everyone\b|@todos\b/i.test(text)
+        for (const mu of serverMembers) {
+          if (mu.id === user.id) continue
+          if (everyone || tags.has(mu.username)) {
+            mentionIds.push(mu.id)
+            mentionUsers.push({ id: mu.id, username: mu.username, displayName: mu.displayName })
+          }
+        }
+      }
+
       const msg = {
         id: nanoid(),
         channelId,
@@ -196,25 +216,42 @@ export function registerSignaling(io) {
         content: text,
         image: img,
         sticker: stk,
+        mentions: mentionIds,
         createdAt: Date.now(),
       }
       await messages.add(msg)
       const u = db.data.users.find((x) => x.id === user.id)
+      const author = {
+        id: user.id,
+        username: user.username,
+        displayName: u?.displayName || user.displayName,
+        color: u?.color || '#5865F2',
+        avatar: u?.avatar || null,
+      }
       io.to(`chat:${channelId}`).emit('chat:message', {
         id: msg.id,
         channelId,
         content: text,
         image: img,
         sticker: stk,
+        mentions: mentionIds,
+        mentionUsers,
         createdAt: msg.createdAt,
-        author: {
-          id: user.id,
-          username: user.username,
-          displayName: u?.displayName || user.displayName,
-          color: u?.color || '#5865F2',
-          avatar: u?.avatar || null,
-        },
+        author,
       })
+
+      // notifica quem foi mencionado (mesmo quem nao esta olhando o canal)
+      const preview = (text || (img ? '📷 imagem' : stk ? 'figurinha' : '')).slice(0, 120)
+      for (const mid of mentionIds) {
+        notifyUser(mid, 'mention', {
+          serverId: ch.serverId,
+          channelId,
+          channelName: ch.name,
+          from: author.displayName,
+          preview,
+          createdAt: msg.createdAt,
+        })
+      }
     })
 
     socket.on('disconnect', leaveVoice)

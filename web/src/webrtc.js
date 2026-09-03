@@ -22,7 +22,10 @@ export class MeshManager {
     this.handlers = handlers // { onRemoteStream, onPeerTracks, onPeerGone, onScreenEnded, onCameraEnded }
     this.peers = new Map() // socketId -> { pc, polite, makingOffer, ignoreOffer }
     this.outbound = new MediaStream() // microfone
-    this.micTrack = null
+    this.micTrack = null // o que vai pros peers (limpo, se RNNoise ligado)
+    this.micRaw = null // stream cru do getUserMedia
+    this.denoiser = null // pipeline RNNoise (ou null)
+    this._micOpts = {}
     this.screenStream = null
     this.camStream = null
     this._bindings = {
@@ -35,48 +38,71 @@ export class MeshManager {
 
   async start(opts = {}) {
     this._micOpts = opts
-    const mic = await navigator.mediaDevices.getUserMedia({
-      audio: this._micConstraints(opts),
-      video: false,
-    })
-    this.micTrack = mic.getAudioTracks()[0]
+    this._muted = false
+    await this._buildMic()
     this.outbound.addTrack(this.micTrack)
     for (const [event, fn] of Object.entries(this._bindings)) this.socket.on(event, fn)
     return this.outbound
   }
 
-  _micConstraints(opts = {}) {
-    const o = { ...(this._micOpts || {}), ...opts }
-    return {
-      deviceId: o.deviceId ? { exact: o.deviceId } : undefined,
-      echoCancellation: o.echoCancellation !== false,
-      noiseSuppression: o.noiseSuppression !== false,
-      autoGainControl: true,
+  // (re)constroi micRaw + denoiser + micTrack a partir de this._micOpts
+  async _buildMic() {
+    const o = this._micOpts || {}
+    const useRnnoise = o.noiseSuppression !== false
+    this.micRaw = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        deviceId: o.deviceId ? { exact: o.deviceId } : undefined,
+        echoCancellation: o.echoCancellation !== false,
+        // com RNNoise, desliga o processamento do navegador (RNNoise faz melhor)
+        noiseSuppression: !useRnnoise,
+        autoGainControl: !useRnnoise,
+      },
+      video: false,
+    })
+    let track = this.micRaw.getAudioTracks()[0]
+    this.denoiser = null
+    if (useRnnoise) {
+      try {
+        const { createDenoiser } = await import('./noise.js')
+        this.denoiser = await createDenoiser(this.micRaw)
+        track = this.denoiser.track
+      } catch (e) {
+        console.warn('RNNoise indisponivel — usando so o navegador', e)
+      }
     }
+    this.micTrack = track
+    for (const t of this.micRaw.getAudioTracks()) t.enabled = !this._muted
+  }
+
+  _teardownMic() {
+    try { this.denoiser?.dispose() } catch {}
+    this.denoiser = null
+    for (const t of this.micRaw?.getTracks() || []) t.stop()
+    this.micRaw = null
   }
 
   // troca mic ou reaplica o processamento sem derrubar a call (replaceTrack)
   async setMicDevice(opts = {}) {
     this._micOpts = { ...(this._micOpts || {}), ...opts }
-    const s = await navigator.mediaDevices.getUserMedia({
-      audio: this._micConstraints(),
-      video: false,
-    })
-    const newTrack = s.getAudioTracks()[0]
-    newTrack.enabled = this.micTrack ? this.micTrack.enabled : true
+    const oldTrack = this.micTrack
+    const oldRaw = this.micRaw
+    const oldDenoiser = this.denoiser
+
+    await this._buildMic() // define novos micRaw / denoiser / micTrack
+
     for (const { pc } of this.peers.values()) {
       for (const sender of pc.getSenders()) {
-        if (sender.track && sender.track === this.micTrack) {
-          await sender.replaceTrack(newTrack).catch(() => {})
+        if (sender.track && sender.track === oldTrack) {
+          await sender.replaceTrack(this.micTrack).catch(() => {})
         }
       }
     }
-    if (this.micTrack) {
-      this.outbound.removeTrack(this.micTrack)
-      this.micTrack.stop()
-    }
-    this.outbound.addTrack(newTrack)
-    this.micTrack = newTrack
+    if (oldTrack) this.outbound.removeTrack(oldTrack)
+    this.outbound.addTrack(this.micTrack)
+
+    try { oldDenoiser?.dispose() } catch {}
+    for (const t of oldRaw?.getTracks() || []) t.stop()
+
     this.handlers.onMicChanged?.(this.outbound)
   }
 
@@ -186,7 +212,12 @@ export class MeshManager {
   }
 
   setMuted(muted) {
-    if (this.micTrack) this.micTrack.enabled = !muted
+    this._muted = muted
+    // muta no track cru: o RNNoise recebe silencio e para de gastar CPU
+    for (const t of this.micRaw?.getAudioTracks() || []) t.enabled = !muted
+    if (this.micTrack && !this.micRaw?.getAudioTracks().includes(this.micTrack)) {
+      this.micTrack.enabled = !muted
+    }
   }
 
   async startScreenShare() {
@@ -279,7 +310,7 @@ export class MeshManager {
     }
     this.screenStream = null
     this.camStream = null
-    this.micTrack?.stop()
+    this._teardownMic()
     this.micTrack = null
     this.outbound = new MediaStream()
   }

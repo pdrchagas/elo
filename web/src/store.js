@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { api, setToken, getToken } from './api.js'
 import { connectSocket, disconnectSocket, getSocket } from './socket.js'
+import { playMention } from './sounds.js'
 
 let autoRefreshWired = false
 
@@ -11,6 +12,7 @@ export const useStore = create((set, get) => ({
   friends: [],
   online: {}, // { [userId]: true } — quem esta online agora
   voiceRosters: {}, // { [channelId]: [ { id, displayName, color, avatar, state } ] }
+  mentions: {}, // { [channelId]: quantidade de mencoes nao vistas }
   activeServerId: null,
   activeChannelId: null,
   voiceChannelId: null,
@@ -67,6 +69,7 @@ export const useStore = create((set, get) => ({
       friends: [],
       online: {},
       voiceRosters: {},
+      mentions: {},
       activeServerId: null,
       activeChannelId: null,
       voiceChannelId: null,
@@ -98,6 +101,27 @@ export const useStore = create((set, get) => ({
     })
     socket.on('voice:roster', ({ channelId, members }) => {
       set((s) => ({ voiceRosters: { ...s.voiceRosters, [channelId]: members || [] } }))
+    })
+    socket.on('mention', (m) => {
+      const s = get()
+      const seeing = s.activeChannelId === m.channelId && !document.hidden
+      if (seeing) return
+      set((st) => ({ mentions: { ...st.mentions, [m.channelId]: (st.mentions[m.channelId] || 0) + 1 } }))
+      try {
+        playMention()
+      } catch {}
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        const n = new Notification(`${m.from} te mencionou em #${m.channelName}`, {
+          body: m.preview,
+          tag: m.channelId,
+        })
+        n.onclick = () => {
+          window.focus()
+          get().selectServer(m.serverId)
+          get().selectChannel(m.channelId)
+          n.close()
+        }
+      }
     })
     socket.on('connect', () => get().refreshAll())
     socket.on('reconnect', () => get().refreshAll())
@@ -189,12 +213,36 @@ export const useStore = create((set, get) => ({
   },
 
   selectServer(id) {
-    const s = get().servers.find((x) => x.id === id)
-    set({ activeServerId: id, activeChannelId: s?.channels?.[0]?.id || null })
+    const srv = get().servers.find((x) => x.id === id)
+    const ch = srv?.channels?.[0]?.id || null
+    set((s) => {
+      const mentions = { ...s.mentions }
+      if (ch) delete mentions[ch]
+      return { activeServerId: id, activeChannelId: ch, mentions }
+    })
   },
 
   selectChannel(id) {
-    set({ activeChannelId: id })
+    set((s) => {
+      const mentions = { ...s.mentions }
+      delete mentions[id]
+      return { activeChannelId: id, mentions }
+    })
+  },
+
+  clearMentions(channelId) {
+    set((s) => {
+      if (!s.mentions[channelId]) return {}
+      const mentions = { ...s.mentions }
+      delete mentions[channelId]
+      return { mentions }
+    })
+  },
+
+  async askNotifications() {
+    if (typeof Notification === 'undefined') return 'unsupported'
+    if (Notification.permission === 'granted') return 'granted'
+    return Notification.requestPermission()
   },
 
   setVoiceChannel(id) {

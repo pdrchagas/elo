@@ -7,7 +7,10 @@ import { fileToAvatar } from './media.js'
 
 export default function Settings({ onClose, onLogout, initialTab = 'perfil' }) {
   const voice = useVoice()
-  const { user, setAvatar, setDisplayName, changePassword, logoutEverywhere } = useStore()
+  const { user, setAvatar, setDisplayName, changePassword, logoutEverywhere, askNotifications } = useStore()
+  const [notifPerm, setNotifPerm] = useState(
+    typeof Notification !== 'undefined' ? Notification.permission : 'unsupported',
+  )
   const [tab, setTab] = useState(initialTab)
   const [pw, setPw] = useState({ current: '', next: '' })
   const [pwMsg, setPwMsg] = useState('')
@@ -176,8 +179,8 @@ export default function Settings({ onClose, onLogout, initialTab = 'perfil' }) {
             <Toggle
               checked={voice.noiseSuppress}
               onChange={() => voice.toggleNoiseSuppress()}
-              label="supressão de ruído"
-              hint="tira barulho de fundo (teclado, ventilador). deixe ligado."
+              label="supressão de ruído (IA)"
+              hint="usa RNNoise pra tirar teclado, ventilador e barulho de fundo — bem mais forte que a do navegador. cada pessoa liga a sua."
             />
             <Toggle
               checked={voice.echoCancel}
@@ -190,6 +193,27 @@ export default function Settings({ onClose, onLogout, initialTab = 'perfil' }) {
               onChange={() => voice.toggleSounds()}
               label="som quando alguém entra ou sai da call"
             />
+
+            <h3 style={{ marginTop: 20 }}>notificações</h3>
+            {notifPerm === 'granted' ? (
+              <p className="hint">notificações do navegador ativadas ✓ (quando te mencionam)</p>
+            ) : notifPerm === 'unsupported' ? (
+              <p className="hint">seu navegador não suporta notificações</p>
+            ) : (
+              <>
+                <button
+                  className="btn"
+                  onClick={async () => setNotifPerm(await askNotifications())}
+                >
+                  ativar notificações quando me mencionarem
+                </button>
+                {notifPerm === 'denied' && (
+                  <p className="hint">
+                    você bloqueou — libere no cadeado da barra de endereço e recarregue
+                  </p>
+                )}
+              </>
+            )}
 
             <p className="hint">
               a escolha vale pra proxima vez que voce entrar numa call e fica salva neste navegador.

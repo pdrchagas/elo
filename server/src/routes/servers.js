@@ -297,11 +297,17 @@ r.get('/:id/channels/:cid/messages', async (req, res) => {
   const list = await messages.list(req.params.cid)
   const out = list.map((m) => {
     const u = db.data.users.find((x) => x.id === m.userId)
+    const mentions = m.mentions || []
     return {
       id: m.id,
       content: m.content || '',
       image: m.image || null,
       sticker: m.sticker || null,
+      mentions,
+      mentionUsers: mentions
+        .map((id) => db.data.users.find((x) => x.id === id))
+        .filter(Boolean)
+        .map((x) => ({ id: x.id, username: x.username, displayName: x.displayName })),
       createdAt: m.createdAt,
       author: u ? publicUser(u) : null,
     }

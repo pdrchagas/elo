@@ -17,7 +17,7 @@ import {
 
 export default function Shell() {
   const {
-    user, servers, activeServerId, activeChannelId,
+    user, servers, activeServerId, activeChannelId, mentions,
     selectServer, selectChannel, logout, refreshServers,
   } = useStore()
   const voice = useVoice()
@@ -92,17 +92,21 @@ export default function Shell() {
           ⌂
         </button>
         <div className="rail-sep" />
-        {servers.map((s) => (
-          <button
-            key={s.id}
-            className={`rail-btn ${s.id === activeServerId ? 'active' : ''}`}
-            style={{ '--srv': s.color }}
-            title={s.name}
-            onClick={() => pickServer(s.id)}
-          >
-            {s.name.slice(0, 2).toUpperCase()}
-          </button>
-        ))}
+        {servers.map((s) => {
+          const cnt = s.channels.reduce((n, c) => n + (mentions[c.id] || 0), 0)
+          return (
+            <button
+              key={s.id}
+              className={`rail-btn ${s.id === activeServerId ? 'active' : ''}`}
+              style={{ '--srv': s.color }}
+              title={s.name}
+              onClick={() => pickServer(s.id)}
+            >
+              {s.name.slice(0, 2).toUpperCase()}
+              {cnt > 0 && <span className="badge">{cnt > 9 ? '9+' : cnt}</span>}
+            </button>
+          )
+        })}
         {user.isAdmin && (
           <button className="rail-btn add" title="Criar servidor" onClick={() => setDialog('server')}>
             +
@@ -137,10 +141,11 @@ export default function Shell() {
               {server.channels.filter((c) => c.type === 'text').map((c) => (
                 <button
                   key={c.id}
-                  className={`channel ${c.id === activeChannelId ? 'active' : ''}`}
+                  className={`channel ${c.id === activeChannelId ? 'active' : ''} ${mentions[c.id] ? 'has-mention' : ''}`}
                   onClick={() => pickChannel(c.id)}
                 >
                   <span className="hash">#</span> {c.name}
+                  {mentions[c.id] > 0 && <span className="badge">{mentions[c.id] > 9 ? '9+' : mentions[c.id]}</span>}
                 </button>
               ))}
 

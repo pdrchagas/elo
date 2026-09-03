@@ -33,3 +33,5 @@ export const playJoin = () => blip([[523.25, 0, 0.13], [659.25, 0.09, 0.16]])
 export const playLeave = () => blip([[493.88, 0, 0.13], [369.99, 0.09, 0.18]])
 // você entrou na call
 export const playSelfJoin = () => blip([[440, 0, 0.1], [587.33, 0.08, 0.12], [880, 0.16, 0.18]], { gain: 0.12 })
+// te mencionaram
+export const playMention = () => blip([[880, 0, 0.09], [1174.66, 0.07, 0.14]], { type: 'triangle', gain: 0.16 })
