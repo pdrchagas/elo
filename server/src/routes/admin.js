@@ -3,6 +3,7 @@ import { db } from '../db.js'
 import { authMiddleware } from '../auth.js'
 import { messages } from '../messages.js'
 import { isOnline, notifyUser } from '../realtime.js'
+import { syncUser, removeUser } from '../projection.js'
 
 const r = Router()
 r.use(authMiddleware)
@@ -42,6 +43,7 @@ r.post('/users/:id/admin', async (req, res) => {
   if (u.id === req.me.id) return res.status(400).json({ error: 'voce nao pode mudar seu proprio admin' })
   u.isAdmin = !u.isAdmin
   await db.write()
+  syncUser(u)
   notifyUser(u.id, 'sync', { scope: 'all' })
   res.json({ ok: true, isAdmin: u.isAdmin })
 })
@@ -66,6 +68,7 @@ r.delete('/users/:id', async (req, res) => {
   db.data.users = db.data.users.filter((x) => x.id !== u.id)
   await messages.deleteChannels(orphanChannels)
   await db.write()
+  removeUser(u.id)
 
   notifyUser(u.id, 'kicked', {})
   res.json({ ok: true })

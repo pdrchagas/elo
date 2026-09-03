@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from './api.js'
 import { getSocket } from './socket.js'
 import { useStore } from './store.js'
-import { STICKERS, fileToChatImage } from './media.js'
+import { fileToChatImage } from './media.js'
 import Avatar from './Avatar.jsx'
+import StickerPicker from './StickerPicker.jsx'
 
 export default function Chat({ server, channel }) {
   const [messages, setMessages] = useState([])
@@ -98,7 +99,12 @@ export default function Chat({ server, channel }) {
                 </small>
               </div>
               {m.content && <div className="msg-body">{m.content}</div>}
-              {m.sticker && <div className="msg-sticker">{m.sticker}</div>}
+              {m.sticker &&
+                (String(m.sticker).startsWith('data:') ? (
+                  <img className="msg-sticker-img" src={m.sticker} alt="figurinha" />
+                ) : (
+                  <div className="msg-sticker">{m.sticker}</div>
+                ))}
               {m.image && (
                 <img
                   className="msg-image"
@@ -123,11 +129,7 @@ export default function Chat({ server, channel }) {
       )}
 
       {showStickers && (
-        <div className="sticker-tray">
-          {STICKERS.map((s) => (
-            <button key={s} onClick={() => sendSticker(s)}>{s}</button>
-          ))}
-        </div>
+        <StickerPicker onPick={(v) => sendSticker(v)} onClose={() => setShowStickers(false)} />
       )}
 
       <form className="composer" onSubmit={send} onPaste={onPaste}>

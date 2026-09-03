@@ -14,6 +14,7 @@ const defaultData = {
   servers: [],    // { id, name, ownerId, color, createdAt }
   members: [],    // { serverId, userId, role, roleIds:[] }
   roles: [],      // { id, serverId, name, color, canKick, canMute, canMove }
+  stickers: [],   // { id, url, name, addedBy, createdAt }
   channels: [],   // { id, serverId, name, type:'text'|'voice', position }
   messages: [],   // { id, channelId, userId, content, createdAt }
 }

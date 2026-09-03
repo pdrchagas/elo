@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs'
 import { db, nanoid } from '../db.js'
 import { signToken, authMiddleware } from '../auth.js'
 import { notifyUser, notifyRelated } from '../realtime.js'
+import { syncUser } from '../projection.js'
 
 const r = Router()
 
@@ -90,6 +91,7 @@ r.post('/register', async (req, res) => {
     }
   }
   await db.write()
+  syncUser(user)
   if (inviteRec?.createdBy) notifyUser(inviteRec.createdBy, 'sync', { scope: 'friends' })
   res.json({ token: signToken(user), user: publicUser(user) })
 })
@@ -103,6 +105,7 @@ r.post('/login', async (req, res) => {
   user.lastLogin = Date.now()
   user.loginCount = (user.loginCount || 0) + 1
   await db.write()
+  syncUser(user)
   res.json({ token: signToken(user), user: publicUser(user) })
 })
 
@@ -121,6 +124,7 @@ r.post('/profile', authMiddleware, async (req, res) => {
   if (displayNameTaken(name, user.id)) return res.status(409).json({ error: 'ja tem alguem com esse nome' })
   user.displayName = name
   await db.write()
+  syncUser(user)
   notifyRelated(user.id, 'sync', { scope: 'all' })
   res.json({ user: publicUser(user) })
 })

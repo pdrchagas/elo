@@ -8,6 +8,7 @@ import { memberCan, serverOfChannel } from './perms.js'
 
 const IMAGE_RE = /^data:image\/(png|jpe?g|webp|gif);base64,[a-z0-9+/=]{16,}$/i
 const MAX_IMAGE_CHARS = 900_000 // ~650KB depois do base64
+const MAX_STICKER_CHARS = 450_000
 const MAX_SIGNAL_CHARS = 200_000
 
 // limitador simples por socket (janela deslizante grosseira)
@@ -158,7 +159,15 @@ export function registerSignaling(io) {
         else return socket.emit('chat:error', { error: 'imagem invalida ou muito grande' })
       }
       let stk = null
-      if (sticker) stk = String(sticker).slice(0, 24)
+      if (sticker) {
+        const s = String(sticker)
+        if (s.startsWith('data:image/')) {
+          if (s.length <= MAX_STICKER_CHARS && IMAGE_RE.test(s)) stk = s
+          else return socket.emit('chat:error', { error: 'figurinha invalida' })
+        } else {
+          stk = s.slice(0, 24) // emoji
+        }
+      }
 
       if (!text && !img && !stk) return
 

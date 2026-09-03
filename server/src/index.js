@@ -15,8 +15,11 @@ import inviteRoutes from './routes/invites.js'
 import friendRoutes from './routes/friends.js'
 import serverRoutes from './routes/servers.js'
 import adminRoutes from './routes/admin.js'
+import stickerRoutes from './routes/stickers.js'
 import { registerSignaling } from './signaling.js'
 import { initRealtime } from './realtime.js'
+import { db } from './db.js'
+import { syncAll } from './projection.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const origins = (process.env.CLIENT_ORIGIN || '*').split(',').map((s) => s.trim())
@@ -76,6 +79,7 @@ app.use('/api/invites', inviteRoutes)
 app.use('/api/friends', friendRoutes)
 app.use('/api/servers', serverRoutes)
 app.use('/api/admin', adminRoutes)
+app.use('/api/stickers', stickerRoutes)
 
 // serve o frontend compilado, se existir (deploy num unico servico)
 const webDist = path.join(__dirname, '..', '..', 'web', 'dist')
@@ -103,6 +107,8 @@ io.use((socket, next) => {
 
 initRealtime(io)
 registerSignaling(io)
+
+syncAll(db.data.users) // espelha usuarios pra colecao elo.users (visualizacao no Mongo)
 
 const PORT = process.env.PORT || 4000
 server.listen(PORT, () => console.log(`elo server rodando em http://localhost:${PORT}`))

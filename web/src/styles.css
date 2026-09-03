@@ -854,23 +854,118 @@ input:not([type='checkbox']):not([type='radio']):focus {
   border-radius: 8px;
 }
 
-.sticker-tray {
+.msg-sticker-img {
+  margin-top: 4px;
+  max-width: 140px;
+  max-height: 140px;
+  display: block;
+}
+
+/* seletor de figurinhas */
+.stk-picker {
   margin: 0 16px 6px;
-  padding: 10px;
   background: var(--bg-1);
-  border-radius: 10px;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: 320px;
+  flex-shrink: 0;
+}
+.stk-tabs {
+  display: flex;
+  align-items: center;
   gap: 4px;
-  max-height: 200px;
+  padding: 8px;
+  border-bottom: 1px solid #0004;
+}
+.stk-tabs button {
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+.stk-tabs button.on {
+  background: var(--accent);
+  color: #fff;
+}
+.stk-close {
+  margin-left: auto;
+  color: var(--text-dim);
+  padding: 6px 10px !important;
+}
+.stk-search {
+  margin: 8px;
+  width: calc(100% - 16px);
+}
+.stk-err {
+  color: #ff8f92;
+  font-size: 12px;
+  padding: 0 12px 6px;
+}
+.stk-grid {
+  padding: 8px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 6px;
   overflow-y: auto;
 }
-.sticker-tray button {
-  font-size: 26px;
+.stk-grid.emoji {
+  grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+}
+.stk-add {
+  border: 1px dashed #ffffff33;
+  border-radius: 10px;
+  min-height: 72px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+.stk-add:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.stk-item {
+  position: relative;
+}
+.stk-item > button:first-child {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 10px;
+  display: grid;
+  place-content: center;
+  background: #00000022;
+}
+.stk-item > button:first-child:hover {
+  background: #ffffff14;
+}
+.stk-item img {
+  max-width: 90%;
+  max-height: 90%;
+}
+.stk-del {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--red);
+  color: #fff;
+  font-size: 10px;
+  display: none;
+  place-content: center;
+}
+.stk-item:hover .stk-del {
+  display: grid;
+}
+.stk-emoji {
+  font-size: 24px;
   height: 44px;
   border-radius: 8px;
 }
-.sticker-tray button:hover {
+.stk-emoji:hover {
   background: #ffffff12;
 }
 

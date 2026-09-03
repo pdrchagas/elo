@@ -50,6 +50,50 @@ export async function fileToChatImage(file, { maxDim = 1024 } = {}) {
   throw new Error('nao consegui comprimir a imagem o suficiente')
 }
 
+async function loadBitmap(file) {
+  return createImageBitmap(file).catch(async () => {
+    const url = URL.createObjectURL(file)
+    const img = await new Promise((ok, err) => {
+      const i = new Image()
+      i.onload = () => ok(i)
+      i.onerror = err
+      i.src = url
+    })
+    URL.revokeObjectURL(url)
+    return img
+  })
+}
+
+// Figurinha: cabe numa caixa de 160px, mantém transparência (PNG).
+export async function fileToSticker(file, box = 160) {
+  if (!file || !file.type.startsWith('image/')) throw new Error('nao e imagem')
+  if (file.size > 25 * 1024 * 1024) throw new Error('imagem muito grande')
+
+  // gif pequeno: manda animado como está
+  if (file.type === 'image/gif' && file.size <= 300 * 1024) {
+    return await new Promise((ok) => {
+      const rd = new FileReader()
+      rd.onload = () => ok(String(rd.result))
+      rd.readAsDataURL(file)
+    })
+  }
+
+  const bmp = await loadBitmap(file)
+  const scale = Math.min(1, box / Math.max(bmp.width, bmp.height))
+  const w = Math.max(1, Math.round(bmp.width * scale))
+  const h = Math.max(1, Math.round(bmp.height * scale))
+  const canvas = document.createElement('canvas')
+  canvas.width = w
+  canvas.height = h
+  canvas.getContext('2d').drawImage(bmp, 0, 0, w, h)
+
+  let uri = canvas.toDataURL('image/png')
+  if (uri.length > 300_000) uri = canvas.toDataURL('image/webp', 0.85)
+  if (uri.length > 400_000) uri = canvas.toDataURL('image/webp', 0.6)
+  if (uri.length > 420_000) throw new Error('nao consegui comprimir a figurinha')
+  return uri
+}
+
 // Foto de perfil: recorta no centro em quadrado e reduz pra 256px.
 export async function fileToAvatar(file, size = 256) {
   if (!file || !file.type.startsWith('image/')) throw new Error('nao e imagem')
