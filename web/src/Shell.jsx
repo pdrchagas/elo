@@ -318,6 +318,8 @@ function VoiceRoster({ channelId }) {
         // pra mim mesmo, uso o estado ao vivo (mais preciso)
         const speaking = isMe ? voice.selfSpeaking : voice.participants[m.socketId]?.speaking
         const muted = isMe && inThisCall ? voice.muted : m.state?.muted
+        // so da pra mexer no volume de quem nao sou eu e quando eu estou na call
+        const canVol = !isMe && inThisCall && !!m.id
         return (
           <RosterItem
             key={m.socketId || m.id}
@@ -329,6 +331,8 @@ function VoiceRoster({ channelId }) {
             deafened={m.state?.deafened}
             sharing={m.state?.sharing}
             camera={m.state?.camera}
+            volume={canVol ? (voice.volumes[m.id] ?? 1) : null}
+            onVolume={canVol ? (v) => voice.setUserVolume(m.id, v) : null}
           />
         )
       })}
@@ -336,15 +340,42 @@ function VoiceRoster({ channelId }) {
   )
 }
 
-function RosterItem({ name, avatar, speaking, muted, deafened, sharing, camera, color = '#888' }) {
+function RosterItem({ name, avatar, speaking, muted, deafened, sharing, camera, color = '#888', volume, onVolume }) {
+  const [open, setOpen] = useState(false)
+  const canVol = typeof volume === 'number' && onVolume
+  const boosted = canVol && volume !== 1
+
   return (
-    <div className={`roster-item ${speaking ? 'speaking' : ''}`}>
-      <Avatar name={name} avatar={avatar} color={color} size={20} noClick />
-      <span className="roster-name">{name}</span>
-      {camera && <CameraIcon size={13} />}
-      {sharing && <ScreenIcon size={13} />}
-      {deafened && <HeadphonesOffIcon size={13} />}
-      {muted && <MicOffIcon size={13} />}
+    <div className={`roster-item-wrap ${open ? 'open' : ''}`}>
+      <div
+        className={`roster-item ${speaking ? 'speaking' : ''} ${canVol ? 'clickable' : ''}`}
+        onClick={canVol ? () => setOpen((v) => !v) : undefined}
+        title={canVol ? 'ajustar volume' : undefined}
+      >
+        <Avatar name={name} avatar={avatar} color={color} size={20} noClick />
+        <span className="roster-name">{name}</span>
+        {boosted && <span className="roster-vol-tag">{Math.round(volume * 100)}%</span>}
+        {camera && <CameraIcon size={13} />}
+        {sharing && <ScreenIcon size={13} />}
+        {deafened && <HeadphonesOffIcon size={13} />}
+        {muted && <MicOffIcon size={13} />}
+      </div>
+
+      {open && canVol && (
+        <div className="roster-vol">
+          <input
+            type="range"
+            min="0"
+            max="200"
+            value={Math.round(volume * 100)}
+            onChange={(e) => onVolume(Number(e.target.value) / 100)}
+          />
+          <b>{Math.round(volume * 100)}%</b>
+          {volume !== 1 && (
+            <button onClick={() => onVolume(1)} title="voltar pra 100%">↺</button>
+          )}
+        </div>
+      )}
     </div>
   )
 }

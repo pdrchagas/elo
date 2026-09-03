@@ -409,6 +409,46 @@ input:not([type='checkbox']):not([type='radio']):focus {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.roster-item.clickable {
+  cursor: pointer;
+}
+.roster-item.clickable:hover {
+  background: var(--bg-1);
+  color: var(--text);
+}
+.roster-vol-tag {
+  font-size: 11px;
+  color: var(--green);
+  flex-shrink: 0;
+}
+.roster-vol {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 6px 33px;
+}
+.roster-vol input[type='range'] {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--green);
+}
+.roster-vol b {
+  font-size: 11px;
+  color: var(--text-dim);
+  min-width: 34px;
+  text-align: right;
+}
+.roster-vol button {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0 2px;
+}
+.roster-vol button:hover {
+  color: var(--text);
+}
 
 /* painel de voz (estilo Discord) */
 .voice-panel {
