@@ -33,9 +33,10 @@ export class MeshManager {
     }
   }
 
-  async start(micDeviceId) {
+  async start(opts = {}) {
+    this._micOpts = opts
     const mic = await navigator.mediaDevices.getUserMedia({
-      audio: this._micConstraints(micDeviceId),
+      audio: this._micConstraints(opts),
       video: false,
     })
     this.micTrack = mic.getAudioTracks()[0]
@@ -44,19 +45,21 @@ export class MeshManager {
     return this.outbound
   }
 
-  _micConstraints(deviceId) {
+  _micConstraints(opts = {}) {
+    const o = { ...(this._micOpts || {}), ...opts }
     return {
-      deviceId: deviceId ? { exact: deviceId } : undefined,
-      echoCancellation: true,
-      noiseSuppression: true,
+      deviceId: o.deviceId ? { exact: o.deviceId } : undefined,
+      echoCancellation: o.echoCancellation !== false,
+      noiseSuppression: o.noiseSuppression !== false,
       autoGainControl: true,
     }
   }
 
-  // troca o microfone sem derrubar a call (replaceTrack, sem renegociacao)
-  async setMicDevice(deviceId) {
+  // troca mic ou reaplica o processamento sem derrubar a call (replaceTrack)
+  async setMicDevice(opts = {}) {
+    this._micOpts = { ...(this._micOpts || {}), ...opts }
     const s = await navigator.mediaDevices.getUserMedia({
-      audio: this._micConstraints(deviceId),
+      audio: this._micConstraints(),
       video: false,
     })
     const newTrack = s.getAudioTracks()[0]

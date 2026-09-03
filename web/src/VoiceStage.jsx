@@ -24,13 +24,15 @@ export default function VoiceStage({ server, channel }) {
   const voiceChannels = server.channels.filter((c) => c.type === 'voice')
 
   const participants = Object.entries(voice.participants)
-  const screens = []
+  const allScreens = []
   if (voice.sharing && voice.screenStream) {
-    screens.push({ id: 'self', label: `${me.displayName} (voce)`, stream: voice.screenStream, muted: true })
+    allScreens.push({ id: 'self', label: `${me.displayName} (voce)`, stream: voice.screenStream, muted: true, own: true })
   }
   for (const [sid, p] of participants) {
-    if (p.screenStream) screens.push({ id: sid, label: p.user?.displayName || '—', stream: p.screenStream })
+    if (p.screenStream) allScreens.push({ id: sid, label: p.user?.displayName || '—', stream: p.screenStream })
   }
+  const screens = allScreens.filter((s) => s.own || !voice.hiddenScreens.includes(s.id))
+  const hiddenScreens = allScreens.filter((s) => !s.own && voice.hiddenScreens.includes(s.id))
 
   return (
     <div className="voice-stage">
@@ -62,7 +64,18 @@ export default function VoiceStage({ server, channel }) {
                     muted={s.muted}
                     sinkId={voice.spkDeviceId}
                     onExpand={() => setExpanded(s)}
+                    onHide={s.own ? null : () => voice.hideScreen(s.id)}
                   />
+                ))}
+              </div>
+            )}
+
+            {hiddenScreens.length > 0 && (
+              <div className="hidden-screens">
+                {hiddenScreens.map((s) => (
+                  <button key={s.id} className="hidden-screen" onClick={() => voice.showScreen(s.id)}>
+                    <ScreenIcon size={16} /> {s.label} está compartilhando · <b>assistir</b>
+                  </button>
                 ))}
               </div>
             )}
@@ -167,7 +180,7 @@ function ControlBar({ voice }) {
   )
 }
 
-function ScreenTile({ label, stream, muted, sinkId, onExpand }) {
+function ScreenTile({ label, stream, muted, sinkId, onExpand, onHide }) {
   const ref = useRef(null)
   useEffect(() => {
     if (ref.current) ref.current.srcObject = stream || null
@@ -176,10 +189,22 @@ function ScreenTile({ label, stream, muted, sinkId, onExpand }) {
     applySink(ref.current, sinkId)
   }, [sinkId, stream])
   return (
-    <button className="screen-tile" onClick={onExpand} title="ampliar">
+    <div className="screen-tile" onClick={onExpand} title="ampliar">
       <video ref={ref} autoPlay playsInline muted={muted} />
       <span className="screen-label"><ScreenIcon size={13} /> {label}</span>
-    </button>
+      {onHide && (
+        <button
+          className="screen-hide"
+          title="parar de assistir"
+          onClick={(e) => {
+            e.stopPropagation()
+            onHide()
+          }}
+        >
+          ✕
+        </button>
+      )}
+    </div>
   )
 }
 

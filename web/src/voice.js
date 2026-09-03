@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { getSocket } from './socket.js'
 import { MeshManager } from './webrtc.js'
 import { createSpeakingDetector } from './audio.js'
+import { playJoin, playLeave, playSelfJoin } from './sounds.js'
 
 let mesh = null
 let cleanupMeta = null
@@ -26,6 +27,10 @@ export const useVoice = create((set, get) => ({
   notice: '',
   micDeviceId: localStorage.getItem('elo_mic') || '',
   spkDeviceId: localStorage.getItem('elo_spk') || '',
+  noiseSuppress: localStorage.getItem('elo_ns') !== '0', // padrao ligado
+  echoCancel: localStorage.getItem('elo_ec') !== '0', // padrao ligado
+  sounds: localStorage.getItem('elo_sounds') !== '0', // padrao ligado
+  hiddenScreens: [], // ids de telas que voce parou de assistir
   sharing: false,
   camera: false,
   selfSpeaking: false,
@@ -97,10 +102,11 @@ export const useVoice = create((set, get) => ({
         rawStreams.delete(sid)
         trackKinds.delete(sid)
         micStreamId.delete(sid)
+        if (get().sounds && !get().deafened) playLeave()
         set((s) => {
           const next = { ...s.participants }
           delete next[sid]
-          return { participants: next }
+          return { participants: next, hiddenScreens: s.hiddenScreens.filter((x) => x !== sid) }
         })
       },
       onScreenEnded: () => get().stopShare(),
@@ -114,7 +120,10 @@ export const useVoice = create((set, get) => ({
       },
     })
 
-    const onPeerJoined = ({ socketId, user, state }) => patch(socketId, { user, state })
+    const onPeerJoined = ({ socketId, user, state }) => {
+      patch(socketId, { user, state })
+      if (get().sounds && !get().deafened) playJoin()
+    }
     const onPeers = ({ peers }) => peers.forEach((p) => patch(p.socketId, { user: p.user, state: p.state }))
     const onPeerState = ({ socketId, state }) => {
       if (get().participants[socketId]) patch(socketId, { state })
@@ -156,16 +165,21 @@ export const useVoice = create((set, get) => ({
     }
 
     try {
-      const localStream = await mesh.start(get().micDeviceId || undefined)
+      const localStream = await mesh.start({
+        deviceId: get().micDeviceId || undefined,
+        noiseSuppression: get().noiseSuppress,
+        echoCancellation: get().echoCancel,
+      })
       // aplica preferencia de mudo/surdo
       mesh.setMuted(get().muted || get().deafened)
-      set({ localStream, connecting: false })
+      set({ localStream, connecting: false, hiddenScreens: [] })
       speaking.set(
         'self',
         createSpeakingDetector(localStream, (sp) => set({ selfSpeaking: sp && !get().muted })),
       )
       socket.emit('voice:join', { channelId })
       socket.emit('voice:state', { muted: get().muted, deafened: get().deafened })
+      if (get().sounds) playSelfJoin()
     } catch {
       set({ error: 'preciso da permissao do microfone para entrar na call' })
       get().disconnect()
@@ -219,12 +233,39 @@ export const useVoice = create((set, get) => ({
   async setMicDevice(id) {
     localStorage.setItem('elo_mic', id || '')
     set({ micDeviceId: id || '' })
-    await mesh?.setMicDevice(id || undefined)
+    await mesh?.setMicDevice({ deviceId: id || undefined })
   },
 
   setSpkDevice(id) {
     localStorage.setItem('elo_spk', id || '')
     set({ spkDeviceId: id || '' })
+  },
+
+  async toggleNoiseSuppress() {
+    const noiseSuppress = !get().noiseSuppress
+    localStorage.setItem('elo_ns', noiseSuppress ? '1' : '0')
+    set({ noiseSuppress })
+    await mesh?.setMicDevice({ noiseSuppression: noiseSuppress })
+  },
+
+  async toggleEchoCancel() {
+    const echoCancel = !get().echoCancel
+    localStorage.setItem('elo_ec', echoCancel ? '1' : '0')
+    set({ echoCancel })
+    await mesh?.setMicDevice({ echoCancellation: echoCancel })
+  },
+
+  toggleSounds() {
+    const sounds = !get().sounds
+    localStorage.setItem('elo_sounds', sounds ? '1' : '0')
+    set({ sounds })
+  },
+
+  hideScreen(id) {
+    set((s) => ({ hiddenScreens: [...new Set([...s.hiddenScreens, id])] }))
+  },
+  showScreen(id) {
+    set((s) => ({ hiddenScreens: s.hiddenScreens.filter((x) => x !== id) }))
   },
 
   async startShare() {

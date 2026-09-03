@@ -1319,6 +1319,7 @@ input:not([type='checkbox']):not([type='radio']):focus {
   aspect-ratio: 16 / 9;
   border: 1px solid #ffffff14;
   transition: border-color 0.12s, transform 0.12s;
+  cursor: pointer;
 }
 .screen-tile:hover {
   border-color: var(--accent);
@@ -1340,6 +1341,52 @@ input:not([type='checkbox']):not([type='radio']):focus {
   font-size: 12px;
   font-weight: 600;
   pointer-events: none;
+}
+.screen-hide {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #000a;
+  color: #fff;
+  font-size: 13px;
+  display: grid;
+  place-content: center;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.screen-tile:hover .screen-hide {
+  opacity: 1;
+}
+.screen-hide:hover {
+  background: var(--red);
+}
+
+.hidden-screens {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.hidden-screen {
+  text-align: left;
+  padding: 10px 12px;
+  background: var(--bg-1);
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.hidden-screen:hover {
+  background: var(--bg-3);
+  color: var(--text);
+}
+.hidden-screen b {
+  color: var(--accent);
 }
 
 .screen-modal {
@@ -1761,6 +1808,49 @@ input:not([type='checkbox']):not([type='radio']):focus {
   color: var(--text-dim);
   text-transform: uppercase;
   letter-spacing: 0.02em;
+}
+
+.toggle-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 0;
+  text-transform: none;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--text);
+  cursor: pointer;
+}
+.toggle-row small {
+  display: block;
+  color: var(--text-dim);
+}
+.toggle-label {
+  font-weight: 600;
+}
+.toggle {
+  flex-shrink: 0;
+  width: 40px;
+  height: 24px;
+  border-radius: 12px;
+  background: var(--bg-3);
+  padding: 3px;
+  transition: background 0.15s;
+  margin-top: 1px;
+}
+.toggle.on {
+  background: var(--green);
+}
+.toggle-knob {
+  display: block;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s;
+}
+.toggle.on .toggle-knob {
+  transform: translateX(16px);
 }
 
 .admin-users {

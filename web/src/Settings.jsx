@@ -172,6 +172,25 @@ export default function Settings({ onClose, onLogout, initialTab = 'perfil' }) {
 
             <MicTest deviceId={voice.micDeviceId} />
 
+            <h3 style={{ marginTop: 20 }}>processamento de áudio</h3>
+            <Toggle
+              checked={voice.noiseSuppress}
+              onChange={() => voice.toggleNoiseSuppress()}
+              label="supressão de ruído"
+              hint="tira barulho de fundo (teclado, ventilador). deixe ligado."
+            />
+            <Toggle
+              checked={voice.echoCancel}
+              onChange={() => voice.toggleEchoCancel()}
+              label="cancelamento de eco"
+              hint="evita microfonia quando você usa caixa de som em vez de fone."
+            />
+            <Toggle
+              checked={voice.sounds}
+              onChange={() => voice.toggleSounds()}
+              label="som quando alguém entra ou sai da call"
+            />
+
             <p className="hint">
               a escolha vale pra proxima vez que voce entrar numa call e fica salva neste navegador.
               trocar durante a call tambem funciona.
@@ -280,6 +299,20 @@ export default function Settings({ onClose, onLogout, initialTab = 'perfil' }) {
         )}
       </div>
     </div>
+  )
+}
+
+function Toggle({ checked, onChange, label, hint }) {
+  return (
+    <label className="toggle-row">
+      <span className={`toggle ${checked ? 'on' : ''}`} onClick={onChange}>
+        <span className="toggle-knob" />
+      </span>
+      <span>
+        <span className="toggle-label">{label}</span>
+        {hint && <small>{hint}</small>}
+      </span>
+    </label>
   )
 }
 
