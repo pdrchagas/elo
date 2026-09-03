@@ -1321,6 +1321,13 @@ input:focus {
   border-top: none;
   padding-top: 0;
 }
+.danger-zone {
+  border-top: 1px solid #f23f4333 !important;
+}
+.danger-zone h4 {
+  color: #ff8f92;
+}
+
 .modal-actions {
   display: flex;
   gap: 8px;

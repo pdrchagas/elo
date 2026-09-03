@@ -50,6 +50,8 @@ r.get('/', (req, res) => {
 })
 
 r.post('/', async (req, res) => {
+  const meUser = db.data.users.find((u) => u.id === req.user.id)
+  if (!meUser?.isAdmin) return res.status(403).json({ error: 'so o admin pode criar servidores' })
   const name = String(req.body?.name || '').trim()
   if (!name) return res.status(400).json({ error: 'da um nome pro servidor' })
   const s = {

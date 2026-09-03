@@ -120,10 +120,25 @@ export function AddChannelDialog({ server, onClose }) {
 }
 
 export function InviteDialog({ server, onClose }) {
-  const { user, friends, refreshServers } = useStore()
+  const { user, friends, refreshServers, refreshAll, selectServer } = useStore()
   const [appLink, setAppLink] = useState('')
   const [serverLink, setServerLink] = useState('')
   const [busy, setBusy] = useState(false)
+  const [confirmDel, setConfirmDel] = useState(false)
+
+  async function deleteServer() {
+    setBusy(true)
+    try {
+      await api(`/servers/${server.id}`, { method: 'DELETE' })
+      await refreshAll()
+      selectServer(null)
+      onClose()
+    } catch (e) {
+      alert(e.message)
+    } finally {
+      setBusy(false)
+    }
+  }
 
   const accepted = friends.filter((f) => f.status === 'accepted')
   const memberIds = new Set(server.members.map((m) => m.id))
@@ -213,6 +228,31 @@ export function InviteDialog({ server, onClose }) {
           ))}
         </div>
       </section>
+
+      {server.isOwner && (
+        <section className="danger-zone">
+          <h4>zona de perigo</h4>
+          {confirmDel ? (
+            <>
+              <p className="hint">
+                isso apaga <strong>{server.name}</strong>, os canais e todas as mensagens. nao dá pra desfazer.
+              </p>
+              <div className="modal-actions">
+                <button className="btn" disabled={busy} onClick={() => setConfirmDel(false)}>
+                  cancelar
+                </button>
+                <button className="btn danger" disabled={busy} onClick={deleteServer}>
+                  apagar de vez
+                </button>
+              </div>
+            </>
+          ) : (
+            <button className="btn danger full" onClick={() => setConfirmDel(true)}>
+              apagar servidor
+            </button>
+          )}
+        </section>
+      )}
     </Modal>
   )
 }

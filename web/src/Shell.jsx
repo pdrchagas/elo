@@ -69,9 +69,11 @@ export default function Shell() {
             {s.name.slice(0, 2).toUpperCase()}
           </button>
         ))}
-        <button className="rail-btn add" title="Criar servidor" onClick={() => setDialog('server')}>
-          +
-        </button>
+        {user.isAdmin && (
+          <button className="rail-btn add" title="Criar servidor" onClick={() => setDialog('server')}>
+            +
+          </button>
+        )}
       </nav>
 
       {/* coluna de canais / amigos */}

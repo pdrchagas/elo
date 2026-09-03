@@ -35,9 +35,11 @@ export default function Home() {
     <div className="home">
       <header className="content-head">
         <h2>amigos</h2>
-        <button className="btn primary" onClick={() => setDialog(true)}>
-          criar servidor
-        </button>
+        {user.isAdmin && (
+          <button className="btn primary" onClick={() => setDialog(true)}>
+            criar servidor
+          </button>
+        )}
       </header>
 
       <div className="home-body">
