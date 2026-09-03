@@ -4,15 +4,13 @@ import { authMiddleware } from '../auth.js'
 import { publicUser } from './auth.js'
 import { messages } from '../messages.js'
 import { notifyUser, notifyServer, isOnline } from '../realtime.js'
+import { isAppAdmin, isServerOwner, memberCan } from '../perms.js'
 
 const r = Router()
 r.use(authMiddleware)
 
 const SERVER_COLORS = ['#5865F2', '#EB459E', '#57F287', '#FAA61A', '#ED4245', '#00A8FC']
-
-function isAppAdmin(userId) {
-  return !!db.data.users.find((u) => u.id === userId)?.isAdmin
-}
+const ROLE_COLORS = ['#5865F2', '#EB459E', '#57F287', '#FAA61A', '#ED4245', '#00A8FC', '#9B59B6']
 
 // o admin do app pode ver/gerir qualquer servidor
 function isMember(serverId, userId) {
@@ -20,10 +18,6 @@ function isMember(serverId, userId) {
     isAppAdmin(userId) ||
     db.data.members.find((m) => m.serverId === serverId && m.userId === userId)
   )
-}
-
-function isServerOwner(server, userId) {
-  return server.ownerId === userId || isAppAdmin(userId)
 }
 
 // canal que pertence a ESSE servidor (evita trocar o id na URL e ler outro servidor)
@@ -40,6 +34,13 @@ function hydrate(s, uid) {
     color: s.color,
     ownerId: s.ownerId,
     isOwner: isServerOwner(s, uid),
+    myPerms: {
+      manage: isServerOwner(s, uid),
+      kick: memberCan(s, uid, 'canKick'),
+      mute: memberCan(s, uid, 'canMute'),
+      move: memberCan(s, uid, 'canMove'),
+    },
+    roles: db.data.roles.filter((role) => role.serverId === s.id),
     channels: db.data.channels
       .filter((c) => c.serverId === s.id)
       .sort((a, b) => a.position - b.position),
@@ -47,7 +48,9 @@ function hydrate(s, uid) {
       .filter((m) => m.serverId === s.id)
       .map((m) => {
         const u = db.data.users.find((x) => x.id === m.userId)
-        return u ? { ...publicUser(u), role: m.role, online: isOnline(u.id) } : null
+        return u
+          ? { ...publicUser(u), role: m.role, roleIds: m.roleIds || [], online: isOnline(u.id) }
+          : null
       })
       .filter(Boolean),
   }
@@ -158,6 +161,83 @@ r.post('/:id/members', async (req, res) => {
     notifyUser(userId, 'sync', { scope: 'servers' })
     notifyServer(s.id, 'sync', { scope: 'servers' }, req.user.id)
   }
+  res.json({ server: hydrate(s, req.user.id) })
+})
+
+// ---- cargos ----
+r.post('/:id/roles', async (req, res) => {
+  const s = db.data.servers.find((x) => x.id === req.params.id)
+  if (!s || !isServerOwner(s, req.user.id)) return res.status(403).json({ error: 'so o dono gerencia cargos' })
+  const name = String(req.body?.name || '').trim().slice(0, 24)
+  if (!name) return res.status(400).json({ error: 'da um nome pro cargo' })
+  const role = {
+    id: nanoid(),
+    serverId: s.id,
+    name,
+    color: ROLE_COLORS[db.data.roles.filter((x) => x.serverId === s.id).length % ROLE_COLORS.length],
+    canKick: !!req.body?.canKick,
+    canMute: !!req.body?.canMute,
+    canMove: !!req.body?.canMove,
+  }
+  db.data.roles.push(role)
+  await db.write()
+  notifyServer(s.id, 'sync', { scope: 'servers' })
+  res.json({ server: hydrate(s, req.user.id) })
+})
+
+r.patch('/:id/roles/:rid', async (req, res) => {
+  const s = db.data.servers.find((x) => x.id === req.params.id)
+  if (!s || !isServerOwner(s, req.user.id)) return res.status(403).json({ error: 'so o dono gerencia cargos' })
+  const role = db.data.roles.find((x) => x.id === req.params.rid && x.serverId === s.id)
+  if (!role) return res.status(404).json({ error: 'cargo nao encontrado' })
+  if (req.body?.name != null) role.name = String(req.body.name).trim().slice(0, 24) || role.name
+  for (const p of ['canKick', 'canMute', 'canMove']) if (p in (req.body || {})) role[p] = !!req.body[p]
+  await db.write()
+  notifyServer(s.id, 'sync', { scope: 'servers' })
+  res.json({ server: hydrate(s, req.user.id) })
+})
+
+r.delete('/:id/roles/:rid', async (req, res) => {
+  const s = db.data.servers.find((x) => x.id === req.params.id)
+  if (!s || !isServerOwner(s, req.user.id)) return res.status(403).json({ error: 'so o dono gerencia cargos' })
+  db.data.roles = db.data.roles.filter((x) => x.id !== req.params.rid)
+  for (const m of db.data.members) {
+    if (m.roleIds) m.roleIds = m.roleIds.filter((id) => id !== req.params.rid)
+  }
+  await db.write()
+  notifyServer(s.id, 'sync', { scope: 'servers' })
+  res.json({ server: hydrate(s, req.user.id) })
+})
+
+// define os cargos de um membro
+r.put('/:id/members/:uid/roles', async (req, res) => {
+  const s = db.data.servers.find((x) => x.id === req.params.id)
+  if (!s || !isServerOwner(s, req.user.id)) return res.status(403).json({ error: 'so o dono da cargos' })
+  const m = db.data.members.find((x) => x.serverId === s.id && x.userId === req.params.uid)
+  if (!m) return res.status(404).json({ error: 'membro nao encontrado' })
+  const valid = new Set(db.data.roles.filter((x) => x.serverId === s.id).map((x) => x.id))
+  m.roleIds = (Array.isArray(req.body?.roleIds) ? req.body.roleIds : []).filter((id) => valid.has(id))
+  await db.write()
+  notifyServer(s.id, 'sync', { scope: 'servers' })
+  notifyUser(req.params.uid, 'sync', { scope: 'servers' })
+  res.json({ server: hydrate(s, req.user.id) })
+})
+
+// expulsar alguem do servidor (dono, admin, ou cargo com canKick)
+r.delete('/:id/members/:uid', async (req, res) => {
+  const s = db.data.servers.find((x) => x.id === req.params.id)
+  if (!s) return res.status(404).json({ error: 'nao encontrado' })
+  if (!isServerOwner(s, req.user.id) && !memberCan(s, req.user.id, 'canKick')) {
+    return res.status(403).json({ error: 'voce nao pode expulsar ninguem aqui' })
+  }
+  if (req.params.uid === s.ownerId) return res.status(400).json({ error: 'nao da pra expulsar o dono' })
+  if (req.params.uid === req.user.id) return res.status(400).json({ error: 'pra sair use "sair do servidor"' })
+  db.data.members = db.data.members.filter(
+    (m) => !(m.serverId === s.id && m.userId === req.params.uid),
+  )
+  await db.write()
+  notifyUser(req.params.uid, 'sync', { scope: 'servers' })
+  notifyServer(s.id, 'sync', { scope: 'servers' })
   res.json({ server: hydrate(s, req.user.id) })
 })
 

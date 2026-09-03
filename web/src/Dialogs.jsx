@@ -185,8 +185,16 @@ export function InviteDialog({ server, onClose }) {
     await refreshServers()
   }
 
+  async function kick(userId) {
+    await api(`/servers/${server.id}/members/${userId}`, { method: 'DELETE' })
+    await refreshServers()
+  }
+
+  const canManage = server.myPerms?.manage
+  const canKick = server.myPerms?.kick || canManage
+
   return (
-    <Modal title={`${server.name} — convites`} onClose={onClose}>
+    <Modal title={`${server.name} — servidor`} onClose={onClose}>
       {user.isAdmin && (
         <section>
           <h4>convite para o app</h4>
@@ -229,17 +237,21 @@ export function InviteDialog({ server, onClose }) {
         ))}
       </section>
 
+      {canManage && <RolesSection server={server} />}
+
       <section>
         <h4>membros ({server.members.length})</h4>
-        <div className="member-chips">
-          {server.members.map((m) => (
-            <span key={m.id} className="chip">
-              <span className="dot" style={{ background: m.color }} />
-              {m.displayName}
-              {m.role === 'owner' && ' 👑'}
-            </span>
-          ))}
-        </div>
+        {server.members.map((m) => (
+          <MemberRow
+            key={m.id}
+            server={server}
+            m={m}
+            canManage={canManage}
+            canKick={canKick}
+            meId={user.id}
+            onKick={() => kick(m.id)}
+          />
+        ))}
       </section>
 
       {server.isOwner && (
@@ -267,6 +279,137 @@ export function InviteDialog({ server, onClose }) {
         </section>
       )}
     </Modal>
+  )
+}
+
+const PERMS = [
+  ['canKick', '🥾 expulsar'],
+  ['canMute', '🔇 silenciar na call'],
+  ['canMove', '↔ mover de canal'],
+]
+
+function RolesSection({ server }) {
+  const { refreshServers } = useStore()
+  const roles = server.roles || []
+  const [name, setName] = useState('')
+  const [perms, setPerms] = useState({ canKick: false, canMute: false, canMove: false })
+
+  async function createRole() {
+    await api(`/servers/${server.id}/roles`, { method: 'POST', body: { name, ...perms } })
+    setName('')
+    setPerms({ canKick: false, canMute: false, canMove: false })
+    await refreshServers()
+  }
+  async function togglePerm(roleId, key, val) {
+    await api(`/servers/${server.id}/roles/${roleId}`, { method: 'PATCH', body: { [key]: val } })
+    await refreshServers()
+  }
+  async function delRole(roleId) {
+    await api(`/servers/${server.id}/roles/${roleId}`, { method: 'DELETE' })
+    await refreshServers()
+  }
+
+  return (
+    <section>
+      <h4>cargos</h4>
+      <p className="hint">quem tem um cargo com a permissão pode fazer aquilo no servidor.</p>
+
+      {roles.map((role) => (
+        <div key={role.id} className="role-row">
+          <span className="role-name" style={{ color: role.color }}>● {role.name}</span>
+          <div className="role-perms">
+            {PERMS.map(([key, label]) => (
+              <label key={key} className="role-perm">
+                <input
+                  type="checkbox"
+                  checked={!!role[key]}
+                  onChange={(e) => togglePerm(role.id, key, e.target.checked)}
+                />
+                {label}
+              </label>
+            ))}
+          </div>
+          <button className="btn sm ghost" onClick={() => delRole(role.id)}>apagar</button>
+        </div>
+      ))}
+
+      <div className="role-new">
+        <input
+          placeholder="nome do novo cargo (ex: moderador)"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          maxLength={24}
+        />
+        <div className="role-perms">
+          {PERMS.map(([key, label]) => (
+            <label key={key} className="role-perm">
+              <input
+                type="checkbox"
+                checked={perms[key]}
+                onChange={(e) => setPerms((p) => ({ ...p, [key]: e.target.checked }))}
+              />
+              {label}
+            </label>
+          ))}
+        </div>
+        <button className="btn primary sm" disabled={!name.trim()} onClick={createRole}>
+          criar cargo
+        </button>
+      </div>
+    </section>
+  )
+}
+
+function MemberRow({ server, m, canManage, canKick, meId, onKick }) {
+  const { refreshServers } = useStore()
+  const [open, setOpen] = useState(false)
+  const roles = server.roles || []
+  const isOwner = m.role === 'owner'
+
+  async function toggleRole(roleId) {
+    const has = (m.roleIds || []).includes(roleId)
+    const next = has ? m.roleIds.filter((x) => x !== roleId) : [...(m.roleIds || []), roleId]
+    await api(`/servers/${server.id}/members/${m.id}/roles`, { method: 'PUT', body: { roleIds: next } })
+    await refreshServers()
+  }
+
+  const myRoles = roles.filter((r) => (m.roleIds || []).includes(r.id))
+
+  return (
+    <div className="member-row2">
+      <Avatar user={m} size={28} online={m.online} />
+      <div className="grow">
+        <div>
+          {m.displayName} {isOwner && '👑'}
+        </div>
+        <div className="member-tags">
+          {myRoles.map((r) => (
+            <span key={r.id} className="role-tag" style={{ color: r.color }}>{r.name}</span>
+          ))}
+        </div>
+      </div>
+      {canManage && roles.length > 0 && !isOwner && (
+        <button className="btn sm" onClick={() => setOpen((v) => !v)}>cargos</button>
+      )}
+      {canKick && !isOwner && m.id !== meId && (
+        <button className="btn sm danger" onClick={onKick}>expulsar</button>
+      )}
+
+      {open && (
+        <div className="member-roles">
+          {roles.map((r) => (
+            <label key={r.id} className="role-perm">
+              <input
+                type="checkbox"
+                checked={(m.roleIds || []).includes(r.id)}
+                onChange={() => toggleRole(r.id)}
+              />
+              <span style={{ color: r.color }}>{r.name}</span>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 

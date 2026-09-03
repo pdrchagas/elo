@@ -22,6 +22,8 @@ export const useVoice = create((set, get) => ({
   // preferencias persistem mesmo fora da call
   muted: localStorage.getItem('elo_muted') === '1',
   deafened: localStorage.getItem('elo_deafened') === '1',
+  forceMuted: false,
+  notice: '',
   micDeviceId: localStorage.getItem('elo_mic') || '',
   spkDeviceId: localStorage.getItem('elo_spk') || '',
   sharing: false,
@@ -122,15 +124,35 @@ export const useVoice = create((set, get) => ({
       get().disconnect()
     }
 
+    const onForceMute = ({ muted, by }) => {
+      mesh?.setMuted(true)
+      set({
+        forceMuted: muted,
+        muted: muted || get().muted,
+        notice: muted ? `voce foi silenciado por ${by}` : `${by} tirou seu silenciamento`,
+      })
+      getSocket()?.emit('voice:state', { muted: muted || get().muted })
+      setTimeout(() => set({ notice: '' }), 4000)
+    }
+    const onMove = ({ channelId: to, by }) => {
+      set({ notice: `${by} te moveu de canal` })
+      get().connect(to)
+      setTimeout(() => set({ notice: '' }), 4000)
+    }
+
     socket.on('voice:peer-joined', onPeerJoined)
     socket.on('voice:peers', onPeers)
     socket.on('voice:peer-state', onPeerState)
     socket.on('voice:error', onError)
+    socket.on('voice:force-mute', onForceMute)
+    socket.on('voice:move', onMove)
     cleanupMeta = () => {
       socket.off('voice:peer-joined', onPeerJoined)
       socket.off('voice:peers', onPeers)
       socket.off('voice:peer-state', onPeerState)
       socket.off('voice:error', onError)
+      socket.off('voice:force-mute', onForceMute)
+      socket.off('voice:move', onMove)
     }
 
     try {
@@ -171,11 +193,12 @@ export const useVoice = create((set, get) => ({
       sharing: false,
       camera: false,
       selfSpeaking: false,
+      forceMuted: false,
     })
   },
 
   toggleMute() {
-    if (get().deafened) return
+    if (get().deafened || get().forceMuted) return
     const muted = !get().muted
     mesh?.setMuted(muted)
     localStorage.setItem('elo_muted', muted ? '1' : '0')
@@ -234,5 +257,13 @@ export const useVoice = create((set, get) => ({
     mesh?.stopCamera()
     set({ camera: false, cameraStream: null })
     getSocket()?.emit('voice:state', { camera: false })
+  },
+
+  // moderacao (quem tem cargo com permissao)
+  modMute(targetSocketId, muted) {
+    getSocket()?.emit('voice:mod', { action: muted ? 'mute' : 'unmute', targetSocketId })
+  },
+  modMove(targetSocketId, toChannelId) {
+    getSocket()?.emit('voice:mod', { action: 'move', targetSocketId, toChannelId })
   },
 }))

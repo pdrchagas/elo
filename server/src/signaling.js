@@ -1,6 +1,7 @@
 import { db, nanoid } from './db.js'
 import { messages } from './messages.js'
 import { trackPresence } from './realtime.js'
+import { memberCan, serverOfChannel } from './perms.js'
 
 // Sinalizacao WebRTC (malha P2P) + chat de texto em tempo real.
 // O servidor so repassa mensagens de negociacao; a midia vai direto entre os navegadores.
@@ -99,6 +100,7 @@ export function registerSignaling(io) {
         if (k in state) clean[k] = !!state[k]
       }
       socket.voiceState = { ...(socket.voiceState || {}), ...clean }
+      if (socket.voiceState.forceMuted) socket.voiceState.muted = true
       if (currentChannel) {
         socket.to(voiceRoom(currentChannel)).emit('voice:peer-state', {
           socketId: socket.id,
@@ -108,6 +110,34 @@ export function registerSignaling(io) {
     })
 
     socket.on('voice:leave', leaveVoice)
+
+    // ---- Moderacao de voz (cargos: mutar / mover) ----
+    socket.on('voice:mod', ({ action, targetSocketId, toChannelId } = {}) => {
+      if (!currentChannel || typeof targetSocketId !== 'string') return
+      const room = io.sockets.adapter.rooms.get(voiceRoom(currentChannel))
+      if (!room || !room.has(targetSocketId)) return
+      const target = io.sockets.sockets.get(targetSocketId)
+      if (!target) return
+
+      const server = serverOfChannel(currentChannel)
+      if (!server) return
+
+      if (action === 'mute' || action === 'unmute') {
+        if (!memberCan(server, user.id, 'canMute')) return
+        const forceMuted = action === 'mute'
+        target.voiceState = { ...(target.voiceState || {}), forceMuted, muted: forceMuted || target.voiceState?.muted }
+        target.emit('voice:force-mute', { muted: forceMuted, by: user.displayName })
+        io.to(voiceRoom(currentChannel)).emit('voice:peer-state', {
+          socketId: targetSocketId,
+          state: target.voiceState,
+        })
+      } else if (action === 'move') {
+        if (!memberCan(server, user.id, 'canMove')) return
+        const dest = db.data.channels.find((c) => c.id === toChannelId && c.type === 'voice')
+        if (!dest || dest.serverId !== server.id) return
+        target.emit('voice:move', { channelId: toChannelId, by: user.displayName })
+      }
+    })
 
     // ---- Chat de texto ----
     socket.on('chat:subscribe', ({ channelId } = {}) => {

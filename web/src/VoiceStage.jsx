@@ -18,6 +18,11 @@ export default function VoiceStage({ server, channel }) {
   const connectedHere = voice.channelId === channel.id
   const [expanded, setExpanded] = useState(null)
 
+  // permissoes de moderacao no servidor deste canal de voz
+  const canMute = !!server.myPerms?.mute
+  const canMove = !!server.myPerms?.move
+  const voiceChannels = server.channels.filter((c) => c.type === 'voice')
+
   const participants = Object.entries(voice.participants)
   const screens = []
   if (voice.sharing && voice.screenStream) {
@@ -45,6 +50,7 @@ export default function VoiceStage({ server, channel }) {
         </div>
       ) : (
         <>
+          {voice.notice && <div className="voice-notice">{voice.notice}</div>}
           <div className="voice-stage-main">
             {screens.length > 0 && (
               <div className={`screen-grid ${screens.length === 1 ? 'single' : ''}`}>
@@ -84,10 +90,22 @@ export default function VoiceStage({ server, channel }) {
                   muted={p.state?.muted}
                   deafened={p.state?.deafened}
                   sharing={p.state?.sharing}
+                  forceMuted={p.state?.forceMuted}
                   micStream={p.micStream}
                   cameraStream={p.cameraStream}
                   sinkId={voice.spkDeviceId}
                   deafenedByMe={voice.deafened}
+                  mod={
+                    canMute || canMove
+                      ? {
+                          canMute,
+                          canMove,
+                          voiceChannels: voiceChannels.filter((c) => c.id !== channel.id),
+                          onMute: (m) => voice.modMute(sid, m),
+                          onMove: (chId) => voice.modMove(sid, chId),
+                        }
+                      : null
+                  }
                 />
               ))}
             </div>
@@ -116,7 +134,8 @@ function ControlBar({ voice }) {
       <button
         className={`round ${voice.muted ? 'danger' : ''}`}
         onClick={() => voice.toggleMute()}
-        title={voice.muted ? 'ativar microfone' : 'mutar'}
+        disabled={voice.forceMuted}
+        title={voice.forceMuted ? 'silenciado pelo servidor' : voice.muted ? 'ativar microfone' : 'mutar'}
       >
         {voice.muted ? <MicOffIcon size={22} /> : <MicIcon size={22} />}
       </button>
@@ -192,15 +211,18 @@ function PersonCard({
   muted,
   deafened,
   sharing,
+  forceMuted,
   micStream,
   cameraStream,
   cameraMuted,
   mirrorCam,
   sinkId,
   deafenedByMe,
+  mod,
 }) {
   const audioRef = useRef(null)
   const videoRef = useRef(null)
+  const [menu, setMenu] = useState(false)
 
   useEffect(() => {
     if (audioRef.current) audioRef.current.srcObject = micStream || null
@@ -213,6 +235,43 @@ function PersonCard({
 
   return (
     <div className={`person-card ${speaking ? 'speaking' : ''}`}>
+      {mod && (
+        <div className="pc-mod">
+          <button className="pc-mod-btn" onClick={() => setMenu((v) => !v)} title="moderar">
+            ⋯
+          </button>
+          {menu && (
+            <div className="pc-mod-menu" onMouseLeave={() => setMenu(false)}>
+              {mod.canMute && (
+                <button
+                  onClick={() => {
+                    mod.onMute(!forceMuted)
+                    setMenu(false)
+                  }}
+                >
+                  {forceMuted ? 'tirar silêncio' : 'silenciar no servidor'}
+                </button>
+              )}
+              {mod.canMove && mod.voiceChannels.length > 0 && (
+                <>
+                  <div className="pc-mod-sep">mover para</div>
+                  {mod.voiceChannels.map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={() => {
+                        mod.onMove(c.id)
+                        setMenu(false)
+                      }}
+                    >
+                      🔊 {c.name}
+                    </button>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
       {cameraStream ? (
         <video
           ref={videoRef}
@@ -232,7 +291,11 @@ function PersonCard({
       <div className="person-badges">
         {sharing && <span title="compartilhando tela">🖥</span>}
         {deafened && <span title="surdo">🎧</span>}
-        {muted && <span title="mudo">🔇</span>}
+        {forceMuted ? (
+          <span title="silenciado pelo servidor">🚫</span>
+        ) : (
+          muted && <span title="mudo">🔇</span>
+        )}
       </div>
       {micStream && <audio ref={audioRef} autoPlay playsInline muted={!!deafenedByMe} />}
     </div>

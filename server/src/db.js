@@ -12,7 +12,8 @@ const defaultData = {
   invites: [],    // { code, kind:'app'|'server', serverId, createdBy, maxUses, uses, expiresAt, createdAt }
   friends: [],    // { id, a, b, status:'pending'|'accepted', requestedBy }
   servers: [],    // { id, name, ownerId, color, createdAt }
-  members: [],    // { serverId, userId, role }
+  members: [],    // { serverId, userId, role, roleIds:[] }
+  roles: [],      // { id, serverId, name, color, canKick, canMute, canMove }
   channels: [],   // { id, serverId, name, type:'text'|'voice', position }
   messages: [],   // { id, channelId, userId, content, createdAt }
 }
