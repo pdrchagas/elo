@@ -13,30 +13,53 @@ import { CreateServerDialog, InviteDialog, AddChannelDialog, ConfirmDialog } fro
 import {
   MicIcon, MicOffIcon, HeadphonesIcon, HeadphonesOffIcon,
   ScreenIcon, CameraIcon, CameraOffIcon, HangupIcon, GearIcon, SignalBars,
+  MenuIcon, PeopleIcon, PlusIcon, CloseIcon, HashIcon, WaveIcon, ChevronIcon,
 } from './icons.jsx'
 
 export default function Shell() {
   const {
-    user, servers, activeServerId, activeChannelId, mentions,
+    user, servers, activeServerId, activeChannelId, mentions, online,
     selectServer, selectChannel, logout, refreshServers,
   } = useStore()
   const voice = useVoice()
   const [dialog, setDialog] = useState(null) // 'server' | 'invite' | 'channel' | 'logout'
-  const [showMembers, setShowMembers] = useState(true) // coluna no desktop
-  const [navOpen, setNavOpen] = useState(false) // gaveta de canais no mobile
-  const [membersMobile, setMembersMobile] = useState(false) // gaveta de membros no mobile
+  const [nav, setNav] = useState(false) // gaveta de navegacao (esquerda)
+  const [members, setMembers] = useState(false) // gaveta de membros (direita)
+  const [crumbMenu, setCrumbMenu] = useState(false) // troca rapida de canal
 
   const server = servers.find((s) => s.id === activeServerId) || null
   const channel = server?.channels.find((c) => c.id === activeChannelId) || null
 
+  const onlineCount = useMemo(
+    () => (server?.members || []).filter((m) => online[m.id] || m.online).length,
+    [server, online],
+  )
+
   function pickChannel(id) {
     selectChannel(id)
-    setNavOpen(false)
+    setNav(false)
+    setCrumbMenu(false)
   }
   function pickServer(id) {
     selectServer(id)
-    setNavOpen(false)
+    setNav(false)
+    setCrumbMenu(false)
   }
+  function pickVoice(c) {
+    pickChannel(c.id)
+    if (voice.channelId !== c.id) voice.connect(c.id)
+  }
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return
+      setCrumbMenu(false)
+      setNav(false)
+      setMembers(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   // convite de servidor via ?join=CODE
   useEffect(() => {
@@ -59,137 +82,119 @@ export default function Shell() {
     return null
   }, [servers, voice.channelId])
 
+  const textChannels = server?.channels.filter((c) => c.type === 'text') || []
+  const voiceChannels = server?.channels.filter((c) => c.type === 'voice') || []
+
   return (
-    <div className={`shell ${navOpen ? 'nav-open' : ''} ${!showMembers ? 'hide-members' : ''} ${membersMobile ? 'members-mobile' : ''}`}>
-      {/* barra de topo (so no mobile) */}
-      <div className="mobile-bar">
-        <button className="mb-btn" onClick={() => setNavOpen(true)} aria-label="menu">☰</button>
-        <span className="mb-title">
-          {channel ? `# ${channel.name}` : server ? server.name : 'amigos'}
-        </span>
-        {server && (
-          <button className="mb-btn" onClick={() => setMembersMobile((v) => !v)} aria-label="membros">👥</button>
-        )}
-      </div>
-
-      {(navOpen || membersMobile) && (
-        <div
-          className="drawer-backdrop"
-          onClick={() => {
-            setNavOpen(false)
-            setMembersMobile(false)
-          }}
-        />
-      )}
-
-      {/* trilha de servidores */}
-      <nav className="rail">
-        <button
-          className={`rail-btn home ${!activeServerId ? 'active' : ''}`}
-          title="Amigos"
-          onClick={() => pickServer(null)}
-        >
-          ⌂
+    <div className="app">
+      <header className="appbar">
+        <button className="ab-icon" onClick={() => setNav(true)} aria-label="navegar" title="servidores e canais">
+          <MenuIcon size={19} />
         </button>
-        <div className="rail-sep" />
-        {servers.map((s) => {
-          const cnt = s.channels.reduce((n, c) => n + (mentions[c.id] || 0), 0)
-          return (
-            <button
-              key={s.id}
-              className={`rail-btn ${s.id === activeServerId ? 'active' : ''}`}
-              style={{ '--srv': s.color }}
-              title={s.name}
-              onClick={() => pickServer(s.id)}
-            >
-              {s.name.slice(0, 2).toUpperCase()}
-              {cnt > 0 && <span className="badge">{cnt > 9 ? '9+' : cnt}</span>}
-            </button>
-          )
-        })}
-        {user.isAdmin && (
-          <button className="rail-btn add" title="Criar servidor" onClick={() => setDialog('server')}>
-            +
+
+        <div className="ab-crumb">
+          <button
+            className="ab-crumb-btn"
+            onClick={() => (server ? setCrumbMenu((v) => !v) : setNav(true))}
+          >
+            <span className="ab-server">{server ? server.name : 'amigos'}</span>
+            {channel && (
+              <>
+                <span className="ab-slash">/</span>
+                {channel.type === 'voice' ? <WaveIcon size={13} /> : <HashIcon size={13} />}
+                <span className="ab-chan">{channel.name}</span>
+              </>
+            )}
+            {server && <ChevronIcon />}
+          </button>
+
+          {crumbMenu && server && (
+            <>
+              <div className="ab-menu-scrim" onClick={() => setCrumbMenu(false)} />
+              <div className="ab-menu">
+                {textChannels.length > 0 && <div className="ab-menu-sec">conversas</div>}
+                {textChannels.map((c) => (
+                  <button
+                    key={c.id}
+                    className={c.id === activeChannelId ? 'on' : ''}
+                    onClick={() => pickChannel(c.id)}
+                  >
+                    <HashIcon size={13} /> {c.name}
+                    {mentions[c.id] > 0 && <span className="badge">{mentions[c.id] > 9 ? '9+' : mentions[c.id]}</span>}
+                  </button>
+                ))}
+                {voiceChannels.length > 0 && <div className="ab-menu-sec">salas de voz</div>}
+                {voiceChannels.map((c) => (
+                  <button
+                    key={c.id}
+                    className={c.id === activeChannelId ? 'on' : ''}
+                    onClick={() => pickVoice(c)}
+                  >
+                    <WaveIcon size={13} /> {c.name}
+                  </button>
+                ))}
+                <div className="ab-menu-sep" />
+                <button onClick={() => { setCrumbMenu(false); setNav(true) }}>
+                  <MenuIcon size={13} /> todos os servidores…
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="ab-spacer" />
+
+        {server && (
+          <button
+            className={`ab-icon wide ${members ? 'on' : ''}`}
+            onClick={() => setMembers((v) => !v)}
+            title="membros"
+          >
+            <PeopleIcon size={19} />
+            <b>{onlineCount}</b>
           </button>
         )}
-      </nav>
+      </header>
 
-      {/* coluna de canais / amigos */}
-      <aside className="sidebar">
-        {server ? (
-          <>
-            <header className="sidebar-head">
-              <span>{server.name}</span>
-              <button
-                className={`icon-btn ${showMembers ? 'on' : ''}`}
-                title="Membros"
-                onClick={() => setShowMembers((v) => !v)}
-              >
-                👥
-              </button>
-              <button className="icon-btn" title="Convidar / gerenciar" onClick={() => setDialog('invite')}>
-                ⚙
-              </button>
-            </header>
-            <div className="channel-list">
-              <div className="channel-group">
-                <span>canais de texto</span>
-                <button className="icon-btn sm" onClick={() => setDialog('channel')} title="Novo canal">
-                  +
-                </button>
-              </div>
-              {server.channels.filter((c) => c.type === 'text').map((c) => (
-                <button
-                  key={c.id}
-                  className={`channel ${c.id === activeChannelId ? 'active' : ''} ${mentions[c.id] ? 'has-mention' : ''}`}
-                  onClick={() => pickChannel(c.id)}
-                >
-                  <span className="hash">#</span> {c.name}
-                  {mentions[c.id] > 0 && <span className="badge">{mentions[c.id] > 9 ? '9+' : mentions[c.id]}</span>}
-                </button>
-              ))}
-
-              <div className="channel-group">
-                <span>canais de voz</span>
-              </div>
-              {server.channels.filter((c) => c.type === 'voice').map((c) => (
-                <div key={c.id} className="voice-channel">
-                  <button
-                    className={`channel ${c.id === activeChannelId ? 'active' : ''}`}
-                    onClick={() => {
-                      pickChannel(c.id)
-                      if (voice.channelId !== c.id) voice.connect(c.id)
-                    }}
-                  >
-                    <span className="hash">🔊</span> {c.name}
-                  </button>
-                  <VoiceRoster channelId={c.id} />
-                </div>
-              ))}
-            </div>
-          </>
-        ) : (
-          <>
-            <header className="sidebar-head">
-              <span>amigos</span>
-            </header>
-            <div className="sidebar-note">seus amigos e servidores aparecem aqui</div>
-          </>
-        )}
-
-        <VoicePanel info={voiceChannelInfo} />
-
-        <UserBar user={user} onOpenSettings={() => setDialog('settings')} />
-      </aside>
-
-      {/* conteudo principal */}
-      <main className="content">
+      <main className="stage">
         {!server && <Home />}
         {server && channel?.type === 'text' && <Chat server={server} channel={channel} />}
         {server && channel?.type === 'voice' && <VoiceStage server={server} channel={channel} />}
+        {server && !channel && (
+          <div className="stage-empty">
+            <p>escolha uma conversa</p>
+            <button className="btn" onClick={() => setNav(true)}>abrir canais</button>
+          </div>
+        )}
       </main>
 
-      {server && <MembersPanel server={server} onClose={() => setMembersMobile(false)} />}
+      <div className="dockwrap">
+        <VoicePanel info={voiceChannelInfo} />
+        <Dock user={user} onOpenSettings={() => setDialog('settings')} />
+      </div>
+
+      {/* gaveta de navegacao */}
+      <Drawer side="left" open={nav} onClose={() => setNav(false)}>
+        <Navigator
+          servers={servers}
+          server={server}
+          activeServerId={activeServerId}
+          activeChannelId={activeChannelId}
+          mentions={mentions}
+          isAdmin={user.isAdmin}
+          onPickServer={pickServer}
+          onPickChannel={pickChannel}
+          onPickVoice={pickVoice}
+          onCreateServer={() => { setNav(false); setDialog('server') }}
+          onAddChannel={() => { setNav(false); setDialog('channel') }}
+          onManage={() => { setNav(false); setDialog('invite') }}
+        />
+      </Drawer>
+
+      {/* gaveta de membros */}
+      <Drawer side="right" open={members && !!server} onClose={() => setMembers(false)}>
+        {server && <MembersPanel server={server} onClose={() => setMembers(false)} />}
+      </Drawer>
 
       <CallAudio />
 
@@ -216,6 +221,99 @@ export default function Shell() {
           }}
           onClose={() => setDialog(null)}
         />
+      )}
+    </div>
+  )
+}
+
+function Drawer({ side, open, onClose, children }) {
+  return (
+    <>
+      <div className={`drawer-scrim ${open ? 'show' : ''}`} onClick={onClose} />
+      <div className={`drawer drawer-${side} ${open ? 'open' : ''}`} aria-hidden={!open}>
+        <button className="drawer-x" onClick={onClose} aria-label="fechar">
+          <CloseIcon size={17} />
+        </button>
+        {children}
+      </div>
+    </>
+  )
+}
+
+function Navigator({
+  servers, server, activeServerId, activeChannelId, mentions, isAdmin,
+  onPickServer, onPickChannel, onPickVoice, onCreateServer, onAddChannel, onManage,
+}) {
+  const textChannels = server?.channels.filter((c) => c.type === 'text') || []
+  const voiceChannels = server?.channels.filter((c) => c.type === 'voice') || []
+
+  return (
+    <div className="nav">
+      <div className="nav-title">servidores</div>
+      <div className="nav-servers">
+        <button
+          className={`nav-srv ${!activeServerId ? 'active' : ''}`}
+          onClick={() => onPickServer(null)}
+        >
+          <span className="nav-srv-home">⌂</span>
+          <span className="nav-srv-name">amigos</span>
+        </button>
+        {servers.map((s) => {
+          const cnt = s.channels.reduce((n, c) => n + (mentions[c.id] || 0), 0)
+          return (
+            <button
+              key={s.id}
+              className={`nav-srv ${s.id === activeServerId ? 'active' : ''}`}
+              onClick={() => onPickServer(s.id)}
+            >
+              <Avatar name={s.name} color={s.color} size={26} noClick />
+              <span className="nav-srv-name">{s.name}</span>
+              {cnt > 0 && <span className="badge">{cnt > 9 ? '9+' : cnt}</span>}
+            </button>
+          )
+        })}
+        {isAdmin && (
+          <button className="nav-srv add" onClick={onCreateServer}>
+            <span className="nav-srv-home"><PlusIcon size={15} /></span>
+            <span className="nav-srv-name">criar servidor</span>
+          </button>
+        )}
+      </div>
+
+      {server && (
+        <div className="nav-channels">
+          <div className="nav-sec">
+            <span>conversas</span>
+            <button onClick={onAddChannel} title="novo canal"><PlusIcon size={13} /></button>
+          </div>
+          {textChannels.map((c) => (
+            <button
+              key={c.id}
+              className={`channel ${c.id === activeChannelId ? 'active' : ''}`}
+              onClick={() => onPickChannel(c.id)}
+            >
+              <HashIcon size={14} className="hash" /> {c.name}
+              {mentions[c.id] > 0 && <span className="badge">{mentions[c.id] > 9 ? '9+' : mentions[c.id]}</span>}
+            </button>
+          ))}
+
+          <div className="nav-sec"><span>salas de voz</span></div>
+          {voiceChannels.map((c) => (
+            <div key={c.id} className="voice-channel">
+              <button
+                className={`channel ${c.id === activeChannelId ? 'active' : ''}`}
+                onClick={() => onPickVoice(c)}
+              >
+                <WaveIcon size={14} className="hash" /> {c.name}
+              </button>
+              <VoiceRoster channelId={c.id} />
+            </div>
+          ))}
+
+          <button className="nav-manage" onClick={onManage}>
+            <GearIcon size={14} /> convidar / gerenciar
+          </button>
+        </div>
       )}
     </div>
   )
@@ -418,34 +516,38 @@ function VoicePanel({ info }) {
   )
 }
 
-function UserBar({ user, onOpenSettings }) {
+function Dock({ user, onOpenSettings }) {
   const voice = useVoice()
 
   return (
-    <div className="userbar">
-      <Avatar user={user} size={30} online />
-      <div className="userbar-name">
-        <strong>{user.displayName}</strong>
-        <small>@{user.username}</small>
-      </div>
+    <div className="dock">
+      <button className="dock-id" onClick={onOpenSettings} title="minha conta">
+        <Avatar user={user} size={28} online />
+        <span className="dock-name">
+          <strong>{user.displayName}</strong>
+          <small>@{user.username}</small>
+        </span>
+      </button>
 
-      <button
-        className={`ub-btn ${voice.muted ? 'off' : ''}`}
-        title={voice.muted ? 'ativar microfone' : 'mutar'}
-        onClick={() => voice.toggleMute()}
-      >
-        {voice.muted ? <MicOffIcon size={18} /> : <MicIcon size={18} />}
-      </button>
-      <button
-        className={`ub-btn ${voice.deafened ? 'off' : ''}`}
-        title={voice.deafened ? 'voltar a ouvir' : 'nao ouvir ninguem'}
-        onClick={() => voice.toggleDeafen()}
-      >
-        {voice.deafened ? <HeadphonesOffIcon size={18} /> : <HeadphonesIcon size={18} />}
-      </button>
-      <button className="ub-btn gear" title="configuracoes (microfone, fone, conta)" onClick={onOpenSettings}>
-        <GearIcon size={18} />
-      </button>
+      <div className="dock-actions">
+        <button
+          className={`ub-btn ${voice.muted ? 'off' : ''}`}
+          title={voice.muted ? 'ativar microfone' : 'mutar'}
+          onClick={() => voice.toggleMute()}
+        >
+          {voice.muted ? <MicOffIcon size={18} /> : <MicIcon size={18} />}
+        </button>
+        <button
+          className={`ub-btn ${voice.deafened ? 'off' : ''}`}
+          title={voice.deafened ? 'voltar a ouvir' : 'nao ouvir ninguem'}
+          onClick={() => voice.toggleDeafen()}
+        >
+          {voice.deafened ? <HeadphonesOffIcon size={18} /> : <HeadphonesIcon size={18} />}
+        </button>
+        <button className="ub-btn gear" title="configuracoes" onClick={onOpenSettings}>
+          <GearIcon size={18} />
+        </button>
+      </div>
     </div>
   )
 }

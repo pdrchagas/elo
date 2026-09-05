@@ -91,6 +91,45 @@ export const ChevronIcon = (p) => (
   </S>
 )
 
+export const MenuIcon = (p) => (
+  <S {...p} stroke>
+    <path d="M4 7h16M4 12h16M4 17h16" />
+  </S>
+)
+
+export const PeopleIcon = (p) => (
+  <S {...p}>
+    <circle cx="9" cy="8" r="3.4" />
+    <path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5" fill="none" stroke="currentColor" strokeWidth="2" />
+    <circle cx="17" cy="8.5" r="2.6" opacity="0.65" />
+    <path d="M16 14c2.6 0 4.5 1.9 4.5 4.5" fill="none" stroke="currentColor" strokeWidth="2" opacity="0.65" />
+  </S>
+)
+
+export const PlusIcon = (p) => (
+  <S {...p} stroke>
+    <path d="M12 5v14M5 12h14" />
+  </S>
+)
+
+export const CloseIcon = (p) => (
+  <S {...p} stroke>
+    <path d="M6 6l12 12M18 6L6 18" />
+  </S>
+)
+
+export const HashIcon = (p) => (
+  <S {...p} stroke>
+    <path d="M9 4 7 20M17 4l-2 16M5 9h15M4 15h15" />
+  </S>
+)
+
+export const WaveIcon = (p) => (
+  <S {...p} stroke>
+    <path d="M4 10v4M8 6v12M12 3v18M16 7v10M20 10v4" />
+  </S>
+)
+
 export const PhoneOffIcon = HangupIcon
 
 // Barrinhas de sinal animadas (verde = conectado)
