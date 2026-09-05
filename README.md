@@ -4,8 +4,13 @@ Plataforma de voz, vídeo e chat pra você e seus amigos — privada e só por c
 grupo, compartilhamento de tela, webcam, canais de texto com imagens e figurinhas, cargos,
 moderação, tudo em tempo real.
 
-> **Privado.** O app roda num host próprio e tem uma **trava de acesso** (`GATE_KEY`): quem não
-> abrir pelo link com a chave vê uma página vazia. A URL não é divulgada aqui de propósito.
+> **Auto-hospedável.** Cada deploy é uma instância independente e sem dados — você sobe a sua,
+> cria a **primeira conta (que vira admin)** e convida quem quiser. Nada da minha instância
+> (URL, banco, chaves) vai neste repositório; tudo isso são variáveis de ambiente que ficam
+> só no seu host. Veja **[TESTAR-ONLINE.md](TESTAR-ONLINE.md)**.
+>
+> Tem uma **trava de acesso** opcional (`GATE_KEY`): se definida, quem não abrir pelo link com a
+> chave vê uma página vazia — serve pra não deixar qualquer um carregar o app.
 
 ---
 

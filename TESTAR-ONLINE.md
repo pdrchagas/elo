@@ -21,7 +21,8 @@ Os dados ficam no **MongoDB Atlas** (não somem em deploy/reinício).
    ```
    Troque `<SENHA>` pela senha real do usuário `elo`.
 
-> Pode ser o mesmo cluster do projeto RWC — o app usa um database separado (`elo`), não mistura.
+> Dá pra reusar um cluster do Atlas que você já tenha — o app usa um database separado
+> (`elo`), não mistura com o resto.
 
 ---
 
@@ -43,8 +44,9 @@ gh repo create elo --private --source=. --push
    O Render lê o `render.yaml` e já cria o serviço com quase tudo pronto.
 3. Ele vai pedir dois valores:
    - **`MONGODB_URI`** → cole a connection string da Parte 1.
-   - **`GATE_KEY`** → uma frase secreta só sua (ex: `SUA_GATE_KEY`). É a trava de
-     acesso: sem ela no link, quem abrir a URL vê uma página vazia.
+   - **`GATE_KEY`** → uma frase secreta só sua, longa e aleatória (gere uma com
+     `openssl rand -hex 16` ou invente). É a trava de acesso: sem ela no link, quem abrir a URL
+     vê uma página vazia. **Nunca coloque a chave real em nenhum arquivo do repo.**
    (`JWT_SECRET` é gerado sozinho; `CLIENT_ORIGIN=*` e `MONGODB_DB=elo` já vêm do yaml.)
 4. **Apply** / **Create**. Em ~2-3 min sai no ar em `https://elo-xxxx.onrender.com`.
 
