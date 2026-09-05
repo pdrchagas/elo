@@ -1,15 +1,19 @@
 :root {
-  --bg-0: #1e1f22;
-  --bg-1: #2b2d31;
-  --bg-2: #313338;
-  --bg-3: #383a40;
-  --text: #dbdee1;
-  --text-dim: #949ba4;
-  --accent: #5865f2;
-  --accent-hover: #4752c4;
-  --green: #23a55a;
-  --red: #f23f43;
-  --radius: 10px;
+  --bg-0: #121213;
+  --bg-1: #19191b;
+  --bg-2: #201f22;
+  --bg-3: #2b2a2e;
+  --bg-panel: var(--bg-panel);
+  --text: #ece9e6;
+  --text-dim: #8d8b91;
+  --accent: #ff7a33;
+  --accent-hover: #e5651f;
+  --accent-2: #ffb454;
+  --green: #35c46a;
+  --red: #ef4444;
+  --radius: 12px;
+  --font-ui: 'Sora', 'Inter', system-ui, -apple-system, sans-serif;
+  --font-body: 'Inter', system-ui, -apple-system, sans-serif;
   font-synthesis: none;
 }
 
@@ -45,10 +49,19 @@ body,
 }
 
 body {
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-body);
   background: var(--bg-0);
   color: var(--text);
   overflow: hidden;
+}
+
+h1, h2, h3, h4,
+.logo-mark,
+.sidebar-head,
+.channel-group,
+.rail-btn,
+.btn.primary {
+  font-family: var(--font-ui);
 }
 
 button {
@@ -75,14 +88,17 @@ small {
   place-content: center;
   text-align: center;
   gap: 12px;
-  background: radial-gradient(circle at 50% 0%, #3a3d7a33, transparent 60%), var(--bg-0);
+  background: radial-gradient(circle at 50% 0%, #ff7a3322, transparent 60%), var(--bg-0);
 }
 
 .logo-mark {
   font-weight: 800;
   font-size: 28px;
-  letter-spacing: -1px;
-  color: #fff;
+  letter-spacing: -0.03em;
+  background: linear-gradient(135deg, var(--accent-2), var(--accent));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 .logo-mark.big {
   font-size: 44px;
@@ -202,7 +218,7 @@ input:not([type='checkbox']):not([type='radio']):focus {
 }
 
 .link {
-  color: #00a8fc;
+  color: var(--accent-2);
   text-decoration: underline;
 }
 
@@ -227,7 +243,7 @@ input:not([type='checkbox']):not([type='radio']):focus {
 }
 
 .form-error {
-  background: #f23f4322;
+  background: #ef444422;
   color: #ff8f92;
   padding: 8px 10px;
   border-radius: 6px;
@@ -235,7 +251,7 @@ input:not([type='checkbox']):not([type='radio']):focus {
 }
 
 .invite-banner {
-  background: #23a55a22;
+  background: #35c46a22;
   color: #7fe0a5;
   padding: 10px;
   border-radius: 8px;
@@ -243,7 +259,7 @@ input:not([type='checkbox']):not([type='radio']):focus {
   font-size: 14px;
 }
 .invite-banner.bad {
-  background: #f23f4322;
+  background: #ef444422;
   color: #ff8f92;
 }
 
@@ -251,7 +267,7 @@ input:not([type='checkbox']):not([type='radio']):focus {
 .shell {
   height: 100%;
   display: grid;
-  grid-template-columns: 72px 240px minmax(0, 1fr) auto;
+  grid-template-columns: 64px 228px minmax(0, 1fr) auto;
   grid-template-rows: 100%;
   overflow: hidden;
 }
@@ -266,44 +282,74 @@ input:not([type='checkbox']):not([type='radio']):focus {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 12px 0;
+  gap: 10px;
+  padding: 14px 0;
   overflow-y: auto;
+  position: relative;
 }
 
 .rail-btn {
-  width: 48px;
-  height: 48px;
-  border-radius: 24px;
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
   background: var(--bg-2);
   color: var(--text);
   font-weight: 700;
-  font-size: 16px;
+  font-size: 15px;
   display: grid;
   place-content: center;
-  transition: border-radius 0.15s, background 0.15s;
+  transition: background 0.15s, color 0.15s, transform 0.1s;
   flex-shrink: 0;
   position: relative;
 }
+.rail-btn::before {
+  content: '';
+  position: absolute;
+  left: -14px;
+  top: 50%;
+  translate: 0 -50%;
+  width: 3px;
+  height: 0;
+  border-radius: 0 3px 3px 0;
+  background: var(--accent-2);
+  transition: height 0.15s;
+}
 .rail-btn:hover {
-  border-radius: 16px;
-  background: var(--accent);
+  background: var(--bg-3);
+  color: #fff;
+}
+.rail-btn:hover::before {
+  height: 12px;
 }
 .rail-btn.active {
-  border-radius: 16px;
-  box-shadow: 0 0 0 2px var(--accent);
+  background: var(--accent);
+  color: #17110b;
+}
+.rail-btn.active::before {
+  height: 22px;
+}
+.rail-btn:active {
+  transform: scale(0.94);
 }
 .rail-btn.home {
   background: var(--bg-2);
-  font-size: 20px;
+  font-size: 18px;
 }
 .rail-btn.add {
   color: var(--green);
-  font-size: 22px;
+  font-size: 20px;
+  border: 1px dashed var(--bg-3);
+  background: transparent;
+}
+.rail-btn.add:hover {
+  background: var(--green);
+  color: #0e2417;
+  border-style: solid;
+  border-color: var(--green);
 }
 .rail-sep {
-  width: 32px;
-  height: 2px;
+  width: 28px;
+  height: 1px;
   background: var(--bg-3);
   border-radius: 1px;
 }
@@ -450,9 +496,9 @@ input:not([type='checkbox']):not([type='radio']):focus {
   color: var(--text);
 }
 
-/* painel de voz (estilo Discord) */
+/* painel de voz da barra lateral */
 .voice-panel {
-  background: #232428;
+  background: var(--bg-panel);
   padding: 8px;
   border-top: 1px solid #0005;
   flex-shrink: 0;
@@ -529,7 +575,7 @@ input:not([type='checkbox']):not([type='radio']):focus {
 .vp-error {
   color: #ff8f92;
   font-size: 12px;
-  background: #f23f4318;
+  background: #ef444418;
   padding: 6px 8px;
   border-radius: 6px;
 }
@@ -564,7 +610,7 @@ input:not([type='checkbox']):not([type='radio']):focus {
 }
 
 .userbar {
-  background: #232428;
+  background: var(--bg-panel);
   padding: 6px 8px;
   display: flex;
   align-items: center;
@@ -588,7 +634,7 @@ input:not([type='checkbox']):not([type='radio']):focus {
   height: 10px;
   border-radius: 50%;
   background: var(--green);
-  border: 2px solid #232428;
+  border: 2px solid var(--bg-panel);
 }
 .userbar-name {
   flex: 1;
@@ -840,7 +886,7 @@ input:not([type='checkbox']):not([type='radio']):focus {
   border-radius: 0 6px 6px 0;
 }
 .mention {
-  background: #5865f233;
+  background: #ff7a3333;
   color: #c9cdfb;
   border-radius: 4px;
   padding: 0 3px;
@@ -966,7 +1012,7 @@ input:not([type='checkbox']):not([type='radio']):focus {
 
 .chat-err {
   margin: 0 16px;
-  background: #f23f4322;
+  background: #ef444422;
   color: #ff8f92;
   font-size: 13px;
   padding: 8px 10px;
@@ -1275,7 +1321,7 @@ input:not([type='checkbox']):not([type='radio']):focus {
 }
 .settings-logout {
   color: var(--red) !important;
-  border: 1px solid #f23f4355;
+  border: 1px solid #ef444455;
 }
 .settings-logout:hover {
   background: var(--red) !important;
@@ -1718,7 +1764,7 @@ input:not([type='checkbox']):not([type='radio']):focus {
 }
 .person-card.speaking {
   border-color: var(--green);
-  background: #23a55a14;
+  background: #35c46a14;
 }
 .person-avatar {
   width: 60px;
@@ -1853,7 +1899,7 @@ input:not([type='checkbox']):not([type='radio']):focus {
   padding-top: 0;
 }
 .danger-zone {
-  border-top: 1px solid #f23f4333 !important;
+  border-top: 1px solid #ef444433 !important;
 }
 .danger-zone h4 {
   color: #ff8f92;
@@ -1893,7 +1939,7 @@ input:not([type='checkbox']):not([type='radio']):focus {
   background: #ffffff0d;
 }
 .pick-item.on {
-  background: #5865f229;
+  background: #ff7a3329;
 }
 .pick-check {
   width: 18px;
@@ -2303,12 +2349,12 @@ input:not([type='checkbox']):not([type='radio']):focus {
   }
   .rail {
     left: 0;
-    width: 68px;
+    width: 60px;
     transform: translateX(-100%);
   }
   .sidebar {
-    left: 68px;
-    width: min(300px, calc(100vw - 68px));
+    left: 60px;
+    width: min(300px, calc(100vw - 60px));
     transform: translateX(-370px);
   }
   .shell.nav-open .rail,

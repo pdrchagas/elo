@@ -1,4 +1,4 @@
-// Emojis por categoria (pra inserir no texto da mensagem, tipo Discord).
+// Emojis por categoria (pra inserir no texto da mensagem).
 export const EMOJI_CATEGORIES = [
   {
     id: 'rostos',

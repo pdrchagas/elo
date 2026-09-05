@@ -1,8 +1,8 @@
 # elo
 
-Plataforma de voz, vídeo e chat pra você e seus amigos — estilo Discord, mas privada e só por
-convite. Chamada em grupo, compartilhamento de tela, webcam, canais de texto com imagens e
-figurinhas, cargos, moderação, tudo em tempo real.
+Plataforma de voz, vídeo e chat pra você e seus amigos — privada e só por convite. Chamada em
+grupo, compartilhamento de tela, webcam, canais de texto com imagens e figurinhas, cargos,
+moderação, tudo em tempo real.
 
 > **Privado.** O app roda num host próprio e tem uma **trava de acesso** (`GATE_KEY`): quem não
 > abrir pelo link com a chave vê uma página vazia. A URL não é divulgada aqui de propósito.

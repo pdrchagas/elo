@@ -1,4 +1,4 @@
-// Icones em SVG (24x24, herdam currentColor) — visual limpo estilo Discord.
+// Icones em SVG (24x24, herdam currentColor) — traço limpo e consistente.
 const S = ({ children, size = 20, stroke = false, ...p }) => (
   <svg
     width={size}
